@@ -1,0 +1,1976 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Smart Green Studio — 대상지 분석 대시보드</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.11.0/dist/tabler-icons.min.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+
+:root {
+  /* ── Apple Surfaces ── */
+  --canvas:#ffffff; --parchment:#f5f5f7; --pearl:#fafafc;
+  --tile-1:#272729; --tile-2:#2a2a2c; --tile-3:#252527; --nav-black:#000000;
+  /* ── Text ── */
+  --ink:#1d1d1f; --ink-80:#333333; --ink-48:#7a7a7a; --on-dark:#ffffff; --body-muted:#cccccc;
+  /* ── Accent – Action Blue ── */
+  --blue:#0066cc; --blue-focus:#0071e3; --blue-on-dark:#2997ff;
+  /* ── Borders ── */
+  --hairline:#e0e0e0; --divider:rgba(0,0,0,.04);
+  /* ── Radius ── */
+  --rsm:8px; --rmd:11px; --rlg:18px; --rpill:9999px;
+  /* ── Layout ── */
+  --lw:280px; --rw:300px; --gnh:44px; --snh:52px; --nav-total:96px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:100%;overflow:hidden;}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif;
+  background:var(--parchment);color:var(--ink);
+  font-size:17px;line-height:1.47;letter-spacing:-0.374px;
+  -webkit-font-smoothing:antialiased;
+}
+
+/* ── GLOBAL NAV ── */
+.global-nav{
+  position:fixed;top:0;left:0;right:0;z-index:700;
+  height:var(--gnh);background:var(--nav-black);
+  display:flex;align-items:center;padding:0 20px;gap:0;
+}
+.gn-logo{display:flex;align-items:center;gap:7px;text-decoration:none;flex-shrink:0;}
+.gn-leaf{width:20px;height:20px;border-radius:5px;background:rgba(255,255,255,.08);
+  display:flex;align-items:center;justify-content:center;font-size:10px;color:rgba(255,255,255,.7);}
+.gn-name{font-size:12px;font-weight:400;letter-spacing:-0.12px;color:rgba(255,255,255,.85);}
+.gn-sep{width:.5px;height:16px;background:rgba(255,255,255,.15);margin:0 16px;}
+.gn-links{display:flex;gap:22px;flex:1;}
+.gn-link{font-size:12px;font-weight:400;letter-spacing:-0.12px;
+  color:rgba(255,255,255,.7);text-decoration:none;transition:color .15s;}
+.gn-link:hover{color:#fff;}
+.gn-right{display:flex;align-items:center;gap:14px;}
+.gn-icon{font-size:15px;color:rgba(255,255,255,.7);cursor:pointer;transition:color .15s;}
+.gn-icon:hover{color:#fff;}
+
+/* ── SUB NAV ── */
+.sub-nav{
+  position:fixed;top:var(--gnh);left:0;right:0;z-index:600;
+  height:var(--snh);
+  background:rgba(245,245,247,.8);
+  backdrop-filter:saturate(180%) blur(20px);
+  -webkit-backdrop-filter:saturate(180%) blur(20px);
+  border-bottom:.5px solid rgba(0,0,0,.08);
+  display:flex;align-items:center;padding:0 20px;gap:20px;
+}
+.sn-product{
+  font-size:21px;font-weight:600;letter-spacing:.231px;color:var(--ink);
+  flex-shrink:0;
+}
+.sn-links{display:flex;gap:20px;flex:1;}
+.sn-link{font-size:14px;font-weight:400;letter-spacing:-0.224px;
+  color:var(--ink-48);text-decoration:none;transition:color .15s;}
+.sn-link:hover{color:var(--ink);}
+.sn-right{display:flex;align-items:center;gap:10px;flex-shrink:0;}
+.api-chip{display:flex;align-items:center;gap:6px;background:rgba(0,102,204,.06);
+  border:1px solid rgba(0,102,204,.2);border-radius:var(--rpill);
+  padding:0 12px;height:28px;font-size:12px;color:var(--blue);letter-spacing:-0.12px;}
+.api-chip i{font-size:12px;}
+
+/* ── SHELL ── */
+.shell{
+  position:fixed;top:var(--nav-total);left:0;right:0;bottom:0;
+  display:grid;grid-template-columns:var(--lw) 1fr var(--rw);
+  gap:1px;background:var(--hairline);overflow:hidden;
+}
+.col{background:var(--canvas);display:flex;flex-direction:column;overflow:hidden;}
+.col-scroll{flex:1;overflow-y:auto;overflow-x:hidden;
+  scrollbar-width:thin;scrollbar-color:var(--hairline) transparent;}
+.col-scroll::-webkit-scrollbar{width:3px;}
+.col-scroll::-webkit-scrollbar-thumb{background:var(--hairline);border-radius:2px;}
+
+/* ── COL HEADER ── */
+.col-hd{padding:20px 20px 16px;border-bottom:.5px solid var(--hairline);
+  flex-shrink:0;background:var(--parchment);}
+.col-hd-eyebrow{font-size:12px;font-weight:400;letter-spacing:.06em;
+  text-transform:uppercase;color:var(--ink-48);margin-bottom:4px;}
+.col-hd-title{
+  font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display",system-ui,sans-serif;
+  font-size:28px;font-weight:600;color:var(--ink);
+  letter-spacing:-0.374px;line-height:1.1;
+}
+.col-hd-sub{font-size:13px;color:var(--ink-48);margin-top:3px;letter-spacing:-0.12px;}
+
+/* ── INPUTS ── */
+.igrp{padding:14px 16px;border-bottom:.5px solid var(--hairline);}
+.ilbl{font-size:11px;font-weight:600;letter-spacing:.07em;
+  text-transform:uppercase;color:var(--ink-48);margin-bottom:10px;}
+.ifield-wrap{margin-bottom:9px;}
+.ifield-wrap:last-of-type{margin-bottom:0;}
+.field-lbl{font-size:12px;color:var(--ink-48);margin-bottom:4px;letter-spacing:-0.12px;}
+.ifield{
+  width:100%;height:36px;padding:0 12px;
+  background:var(--parchment);border:1px solid var(--hairline);
+  border-radius:var(--rsm);font-size:14px;font-family:inherit;
+  color:var(--ink);letter-spacing:-0.224px;outline:none;
+  transition:border-color .15s,box-shadow .15s;
+}
+.ifield:focus{border-color:var(--blue-focus);box-shadow:0 0 0 3px rgba(0,113,227,.12);}
+.ifield::placeholder{color:var(--ink-48);}
+.irow{display:flex;gap:8px;margin-bottom:9px;}
+.irow .ifield-wrap{flex:1;margin-bottom:0;}
+select.ifield{
+  appearance:none;-webkit-appearance:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='rgba(0,0,0,.3)'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 12px center;
+  background-color:var(--parchment);padding-right:32px;cursor:pointer;
+}
+.btn-analyze{
+  width:100%;height:44px;border:none;border-radius:var(--rpill);
+  background:var(--blue);color:#fff;
+  font-size:17px;font-weight:400;font-family:inherit;letter-spacing:-0.374px;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;
+  margin-top:10px;transition:opacity .15s,transform .1s;
+}
+.btn-analyze:hover{opacity:.88;}
+.btn-analyze:active{transform:scale(.95);}
+
+/* tiny util buttons */
+.btn-tiny{height:28px;padding:0 14px;border-radius:var(--rpill);
+  font-size:12px;font-weight:400;font-family:inherit;letter-spacing:-0.12px;
+  cursor:pointer;border:none;transition:opacity .15s,transform .1s;}
+.btn-tiny:active{transform:scale(.95);}
+.btc{background:var(--parchment);color:var(--ink-80);border:1px solid var(--hairline);}
+.bto{background:var(--blue);color:#fff;display:none;}
+.btd{background:transparent;color:var(--ink-48);border:1px solid var(--hairline);display:none;}
+
+/* ── CSV UNIFIED ── */
+.csv-unified{
+  position:relative;background:var(--parchment);
+  border:1.5px dashed var(--hairline);border-radius:var(--rlg);
+  padding:20px 14px 16px;cursor:pointer;text-align:center;
+  transition:border-color .15s,background .15s;margin-bottom:8px;
+}
+.csv-unified:hover{border-color:var(--blue);background:rgba(0,102,204,.03);}
+.csv-unified.drag-over{border-color:var(--blue-focus);background:rgba(0,102,204,.05);}
+.csv-unified input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;}
+.csv-unified-icon{font-size:22px;color:var(--ink-48);margin-bottom:6px;}
+.csv-unified-label{font-size:14px;font-weight:600;color:var(--ink);letter-spacing:-0.224px;margin-bottom:3px;}
+.csv-unified-hint{font-size:11px;color:var(--ink-48);line-height:1.6;letter-spacing:-0.12px;}
+.csv-status-grid{display:flex;flex-wrap:wrap;gap:5px;}
+.csv-chip{
+  display:inline-flex;align-items:center;gap:3px;
+  background:var(--parchment);border:1px solid var(--hairline);
+  border-radius:var(--rpill);padding:4px 10px;
+  font-size:11px;font-weight:400;letter-spacing:-0.12px;
+  color:var(--ink-48);transition:all .2s;white-space:nowrap;
+}
+.csv-chip i{font-size:11px;}
+.csv-chip.loaded{background:rgba(0,102,204,.07);border-color:var(--blue);color:var(--blue);}
+.csv-chip-check{display:none;}
+.csv-chip.loaded .csv-chip-check{display:inline;}
+
+/* ── CENTER ── */
+.center-col{background:var(--canvas);display:flex;flex-direction:column;
+  overflow-y:auto;overflow-x:hidden;
+  scrollbar-width:thin;scrollbar-color:var(--hairline) transparent;}
+.center-col::-webkit-scrollbar{width:3px;}
+.center-col::-webkit-scrollbar-thumb{background:var(--hairline);border-radius:2px;}
+
+/* ── KPI STRIP ── */
+.kpi-strip{display:grid;grid-template-columns:repeat(5,1fr);
+  gap:1px;background:var(--hairline);flex-shrink:0;border-bottom:.5px solid var(--hairline);}
+.kpi-cell{background:var(--parchment);padding:14px 16px 12px;}
+.kpi-lbl{font-size:11px;font-weight:400;letter-spacing:.06em;
+  text-transform:uppercase;color:var(--ink-48);margin-bottom:4px;}
+.kpi-val{
+  font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display",system-ui,sans-serif;
+  font-size:26px;font-weight:600;color:var(--ink);
+  letter-spacing:-0.374px;line-height:1.05;
+}
+.kpi-unit{font-size:13px;color:var(--ink-80);margin-left:2px;letter-spacing:-0.12px;}
+.kpi-sub{font-size:11px;color:var(--ink-48);margin-top:2px;letter-spacing:-0.12px;}
+
+/* ── MAP ── */
+.map-wrap{position:relative;height:520px;flex-shrink:0;overflow:hidden;background:#e8eaed;}
+#googleMap{width:100%;height:100%;}
+.leaflet-container{background:#e8eaed;}
+.leaflet-control-attribution{background:rgba(255,255,255,.85)!important;color:rgba(0,0,0,.45)!important;font-size:9px!important;}
+.leaflet-control-attribution a{color:rgba(0,0,0,.45)!important;}
+.leaflet-popup-content-wrapper{border-radius:var(--rmd);}
+.map-layer-toggle{position:absolute;top:12px;right:12px;z-index:500;display:flex;flex-direction:column;gap:3px;}
+.mlt-btn{
+  height:32px;padding:0 14px;
+  background:rgba(255,255,255,.95);color:var(--ink);
+  border:1px solid rgba(0,0,0,.12);border-radius:var(--rsm);
+  font-size:12px;font-weight:400;font-family:inherit;letter-spacing:-0.12px;
+  cursor:pointer;display:flex;align-items:center;gap:5px;
+  box-shadow:0 1px 4px rgba(0,0,0,.12);white-space:nowrap;
+  transition:background .15s,box-shadow .15s;
+}
+.mlt-btn:hover{background:#fff;box-shadow:0 2px 8px rgba(0,0,0,.16);}
+.mlt-btn.active{background:var(--blue);color:#fff;border-color:var(--blue);}
+.mlt-btn.active i{color:#fff!important;}
+.mlt-btn i{font-size:13px;color:var(--ink-48);}
+.mlt-sep{height:1px;background:var(--hairline);margin:2px 0;}
+.map-overlay{position:absolute;inset:0;z-index:20;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;
+  background:var(--parchment);}
+.map-overlay i{font-size:32px;color:var(--ink-48);}
+.mov-title{font-size:17px;font-weight:400;color:var(--ink-80);letter-spacing:-0.374px;}
+.spin{animation:spin .9s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.map-legend{
+  position:absolute;bottom:0;left:0;right:0;z-index:400;
+  background:rgba(255,255,255,.92);backdrop-filter:blur(12px);
+  padding:7px 16px;display:flex;align-items:center;gap:14px;
+  border-top:.5px solid var(--hairline);
+}
+.ml{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--ink-80);letter-spacing:-0.12px;}
+.ml-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.ml-addr{margin-left:auto;font-size:11px;color:var(--ink-48);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:220px;}
+
+/* ── BOTTOM CARDS ── */
+.bottom-row{display:grid;grid-template-columns:repeat(5,1fr);
+  gap:1px;background:var(--hairline);border-top:.5px solid var(--hairline);flex-shrink:0;}
+.bcard{background:var(--canvas);padding:16px 16px 14px;}
+.bcard-title{font-size:13px;font-weight:600;color:var(--ink);
+  letter-spacing:-0.224px;margin-bottom:3px;display:flex;align-items:center;gap:5px;}
+.bcard-title i{font-size:13px;color:var(--ink-48);}
+.bcard-sub{font-size:11px;color:var(--ink-48);margin-bottom:9px;letter-spacing:-0.12px;}
+
+/* stat row */
+.sr{display:flex;justify-content:space-between;align-items:baseline;
+  padding:3px 0;border-bottom:.5px solid var(--hairline);gap:5px;}
+.sr:last-child{border-bottom:none;}
+.sk{font-size:11px;color:var(--ink-48);flex-shrink:0;letter-spacing:-0.12px;}
+.sv{font-size:11px;font-weight:600;color:var(--ink);text-align:right;letter-spacing:-0.224px;}
+
+/* badge pills */
+.bp{display:inline-block;font-size:11px;font-weight:600;
+  padding:3px 10px;border-radius:var(--rpill);margin-bottom:8px;
+  letter-spacing:.03em;text-transform:uppercase;}
+.bpw{background:var(--parchment);color:var(--ink-80);border:1px solid var(--hairline);}
+.bpg{background:rgba(0,102,204,.07);color:var(--blue);border:1px solid rgba(0,102,204,.2);}
+.bpa{background:rgba(255,159,10,.08);color:rgba(160,100,0,.9);border:1px solid rgba(255,159,10,.22);}
+.bpr{background:rgba(255,59,48,.07);color:rgba(190,35,25,.9);border:1px solid rgba(255,59,48,.2);}
+
+/* tags */
+.tagrow{display:flex;flex-wrap:wrap;gap:4px;margin-top:8px;}
+.tag{font-size:11px;padding:3px 9px;border-radius:var(--rpill);
+  background:var(--parchment);border:1px solid var(--hairline);
+  color:var(--ink-80);letter-spacing:-0.12px;}
+
+/* progress */
+.prog-row{display:flex;align-items:center;gap:7px;margin-top:5px;}
+.prog-lbl{font-size:11px;color:var(--ink-48);min-width:44px;letter-spacing:-0.12px;}
+.prog-track{flex:1;height:3px;background:var(--hairline);border-radius:2px;overflow:hidden;}
+.prog-fill{height:100%;border-radius:2px;background:var(--ink-48);transition:width .8s ease;}
+.prog-fg{background:var(--blue);}
+.prog-pct{font-size:11px;color:var(--ink-48);min-width:22px;text-align:right;}
+
+/* pie */
+.pie-wrap{display:flex;align-items:center;gap:12px;margin-top:6px;}
+.pie-leg{display:flex;flex-direction:column;gap:5px;flex:1;}
+.leg{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--ink-80);letter-spacing:-0.12px;}
+.leg-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+
+/* bars */
+.bar-row{display:flex;align-items:center;gap:7px;margin-bottom:5px;}
+.bar-name{font-size:11px;color:var(--ink-48);min-width:36px;letter-spacing:-0.12px;}
+.bar-track{flex:1;height:10px;background:var(--parchment);border-radius:5px;
+  overflow:hidden;border:1px solid var(--hairline);}
+.bar-fill{height:100%;border-radius:5px;display:flex;align-items:center;
+  padding-left:5px;font-size:9px;color:rgba(0,0,0,.5);font-weight:600;}
+
+/* climate chart */
+.climate-chart{display:flex;align-items:flex-end;gap:2px;height:46px;margin-top:8px;}
+.climate-col{display:flex;flex-direction:column;align-items:center;gap:1px;flex:1;}
+.climate-bars{display:flex;flex-direction:column;justify-content:flex-end;height:36px;gap:1px;width:100%;}
+.climate-bar{width:100%;border-radius:2px 2px 0 0;min-height:2px;}
+.climate-mo{font-size:7px;color:var(--ink-48);}
+
+/* ── RIGHT COLUMN ── */
+.rblock{padding:14px 16px;border-bottom:.5px solid var(--hairline);flex-shrink:0;}
+.rblock:last-child{border-bottom:none;}
+.rblock-title{font-size:13px;font-weight:600;color:var(--ink);
+  letter-spacing:-0.224px;margin-bottom:10px;display:flex;align-items:center;gap:5px;}
+.rblock-title i{font-size:13px;color:var(--ink-48);}
+.sum-text{font-size:14px;color:var(--ink-80);line-height:1.6;
+  letter-spacing:-0.224px;margin-bottom:10px;}
+.count-list{display:flex;flex-direction:column;gap:2px;}
+.count-item{display:flex;align-items:center;gap:8px;
+  background:var(--parchment);border:1px solid var(--hairline);
+  border-radius:var(--rlg);padding:7px 12px;}
+.count-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+.count-lbl{flex:1;font-size:12px;color:var(--ink);letter-spacing:-0.12px;}
+.count-num{font-size:14px;font-weight:600;color:var(--ink);letter-spacing:-0.224px;}
+
+/* issues */
+.issue-list{display:flex;flex-direction:column;gap:3px;}
+.issue-item{background:var(--parchment);border:1px solid var(--hairline);
+  border-radius:var(--rlg);padding:10px 12px;}
+.itag{font-size:11px;font-weight:600;letter-spacing:.03em;
+  padding:2px 9px;border-radius:var(--rpill);display:inline-block;margin-bottom:5px;}
+.itg{background:rgba(0,102,204,.07);color:var(--blue);border:1px solid rgba(0,102,204,.2);}
+.itw{background:var(--parchment);color:var(--ink-80);border:1px solid var(--hairline);}
+.ita{background:rgba(255,159,10,.08);color:rgba(160,100,0,.9);border:1px solid rgba(255,159,10,.22);}
+.itr{background:rgba(255,59,48,.07);color:rgba(190,35,25,.9);border:1px solid rgba(255,59,48,.2);}
+.issue-title{font-size:13px;font-weight:600;color:var(--ink);
+  letter-spacing:-0.224px;margin-bottom:3px;}
+.issue-desc{font-size:12px;color:var(--ink-48);line-height:1.55;letter-spacing:-0.12px;}
+
+/* news */
+.news-item{padding:9px 0;border-bottom:.5px solid var(--hairline);}
+.news-item:last-child{border-bottom:none;}
+.news-cat{font-size:11px;font-weight:600;padding:2px 8px;
+  border-radius:var(--rpill);display:inline-block;margin-bottom:4px;letter-spacing:.03em;}
+.news-item h4{font-size:13px;font-weight:600;color:var(--ink);
+  line-height:1.35;letter-spacing:-0.224px;margin-bottom:3px;}
+.news-item p{font-size:12px;color:var(--ink-48);line-height:1.5;letter-spacing:-0.12px;}
+.news-date{font-size:11px;color:var(--ink-48);margin-top:4px;}
+
+/* POI table */
+.poi-table{width:100%;font-size:12px;border-collapse:collapse;}
+.poi-table th{color:var(--ink-48);font-weight:600;text-align:left;
+  padding:3px 0 5px;border-bottom:.5px solid var(--hairline);
+  letter-spacing:.03em;font-size:11px;}
+.poi-table td{padding:4px 0;border-bottom:.5px solid var(--hairline);
+  color:var(--ink-80);vertical-align:middle;font-size:12px;}
+.poi-table tr:last-child td{border-bottom:none;}
+.poi-cat-dot{width:6px;height:6px;border-radius:50%;
+  display:inline-block;margin-right:4px;vertical-align:middle;}
+
+/* accessibility bars */
+.acc-row{display:flex;align-items:center;gap:7px;margin-bottom:5px;}
+.acc-name{font-size:12px;color:var(--ink-48);min-width:50px;letter-spacing:-0.12px;}
+.acc-track{flex:1;height:3px;background:var(--hairline);border-radius:2px;overflow:hidden;}
+.acc-fill{height:100%;border-radius:2px;background:var(--blue);}
+.acc-val{font-size:12px;color:var(--ink-80);min-width:22px;text-align:right;font-weight:600;letter-spacing:-0.12px;}
+
+/* placeholder */
+.dim{font-size:13px;color:var(--ink-48);font-style:italic;letter-spacing:-0.12px;}
+
+
+/* ── 다중 반경 비교 테이블 ── */
+.multi-r-table{background:var(--parchment);border:1px solid var(--hairline);border-radius:var(--rlg);padding:14px 16px;margin-bottom:12px;display:none;}
+.mr-title{font-size:11px;font-weight:600;color:var(--ink-48);letter-spacing:.06em;text-transform:uppercase;margin-bottom:10px;}
+.mr-tbl{width:100%;border-collapse:collapse;font-size:12px;}
+.mr-tbl th{color:var(--ink-48);font-weight:500;text-align:center;padding:4px 8px;border-bottom:1px solid var(--hairline);font-size:11px;}
+.mr-tbl td{text-align:center;padding:7px 8px;border-bottom:1px solid var(--divider);color:var(--ink-80);}
+.mr-tbl tr:last-child td{border-bottom:none;}
+.mr-win{font-weight:700;color:var(--blue);}
+.mr-badge{display:inline-block;padding:1px 8px;border-radius:var(--rpill);font-size:11px;font-weight:600;border:1.5px solid;}
+.mr-loading{font-size:12px;color:var(--ink-48);text-align:center;padding:12px;font-style:italic;}
+
+/* ── 이력 패널 ── */
+.hist-item{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--divider);cursor:pointer;}
+.hist-item:last-child{border-bottom:none;}
+.hist-item:hover .hist-addr{color:var(--blue);}
+.hist-num{font-size:10px;color:var(--ink-48);min-width:14px;}
+.hist-addr{font-size:12px;color:var(--ink-80);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;letter-spacing:-.2px;}
+.hist-score{font-size:11px;color:var(--blue);font-weight:700;}
+.hist-empty{font-size:12px;color:var(--ink-48);font-style:italic;padding:4px 0;}
+
+/* ── API 설정 ── */
+.api-key-row{display:flex;gap:6px;align-items:center;margin-top:5px;}
+.api-key-row .ifield{flex:1;font-size:11px;padding:6px 10px;height:32px;}
+.api-key-btn{flex-shrink:0;padding:0 10px;height:32px;border-radius:var(--rmd);background:var(--parchment);border:1px solid var(--hairline);font-size:11px;font-weight:600;color:var(--ink-80);cursor:pointer;white-space:nowrap;transition:all .12s;}
+.api-key-btn:hover{background:var(--blue);color:#fff;border-color:var(--blue);}
+.api-key-status{font-size:10px;margin-top:3px;padding-left:2px;}
+
+/* ── 비교 모달 ── */
+.compare-modal{position:fixed;inset:0;z-index:9999;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.5);backdrop-filter:blur(6px);}
+.compare-modal.open{display:flex;}
+.compare-inner{background:#fff;border-radius:20px;padding:28px 32px;width:min(780px,94vw);max-height:88vh;overflow-y:auto;box-shadow:0 32px 80px rgba(0,0,0,.22);}
+.compare-title{font-size:20px;font-weight:700;color:var(--ink);letter-spacing:-.5px;margin-bottom:4px;}
+.compare-sub{font-size:13px;color:var(--ink-48);margin-bottom:20px;}
+.compare-inputs{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;}
+.compare-col-lbl{font-size:11px;font-weight:600;color:var(--ink-48);letter-spacing:.05em;text-transform:uppercase;margin-bottom:5px;}
+.compare-btn-row{display:flex;gap:8px;justify-content:flex-end;margin-bottom:4px;}
+.compare-table-wrap{margin-top:18px;}
+.compare-table{width:100%;border-collapse:collapse;font-size:13px;}
+.compare-table th{background:var(--parchment);padding:8px 12px;text-align:left;font-weight:600;color:var(--ink-48);font-size:11px;text-transform:uppercase;letter-spacing:.04em;}
+.compare-table td{padding:9px 12px;border-bottom:1px solid var(--hairline);color:var(--ink-80);}
+.compare-table .c-metric{color:var(--ink);font-weight:600;}
+.compare-win{color:var(--blue);font-weight:700;}
+.compare-loading{text-align:center;padding:24px;color:var(--ink-48);font-size:13px;font-style:italic;}
+
+/* ── 보조 버튼 ── */
+.btn-row-2{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;}
+.btn-sec{display:flex;align-items:center;justify-content:center;gap:5px;padding:9px 12px;border-radius:var(--rpill);border:1px solid var(--hairline);background:var(--parchment);font-size:12px;font-weight:600;color:var(--ink-80);cursor:pointer;transition:all .12s;font-family:inherit;}
+.btn-sec:hover{background:var(--ink);color:#fff;border-color:var(--ink);}
+.btn-sec i{font-size:13px;}
+
+/* ── 토글 체크박스 ── */
+.toggle-wrap{display:flex;align-items:center;gap:7px;cursor:pointer;font-size:12px;color:var(--ink-80);font-weight:500;margin-top:8px;user-select:none;}
+.toggle-wrap input[type=checkbox]{width:14px;height:14px;accent-color:var(--blue);cursor:pointer;}
+
+/* ── 보행거리 배지 ── */
+.walk-badge{display:inline-flex;align-items:center;gap:2px;font-size:10px;color:var(--blue);font-weight:600;background:rgba(0,102,204,.08);padding:1px 5px;border-radius:4px;margin-left:4px;}
+
+/* ── 소음/인프라 지표 ── */
+.infra-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px 12px;margin-top:6px;}
+.infra-row{display:flex;align-items:center;justify-content:space-between;padding:4px 0;}
+.infra-lbl{font-size:11px;color:var(--ink-48);}
+.infra-val{font-size:11px;font-weight:700;}
+.noise-high{color:#e53935!important;}.noise-mid{color:#f59e0b!important;}.noise-low{color:#22c55e!important;}
+
+/* ── @media print ── */
+@media print {
+  .global-nav,.sub-nav,.col:first-child,.map-layer-toggle,.map-legend,.col-hd-eyebrow,.col-hd-sub,
+  .btn-analyze,.btn-row-2,.igrp,.csv-unified,.compare-modal{display:none!important;}
+  body,html{background:#fff!important;margin:0;padding:0;}
+  .shell{display:block!important;height:auto!important;overflow:visible!important;}
+  .center-col{width:100%!important;height:auto!important;overflow:visible!important;}
+  .col:last-child{width:100%!important;height:auto!important;overflow:visible!important;}
+  .col-scroll{height:auto!important;overflow:visible!important;}
+  #googleMap{height:360px!important;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+  .kpi-strip{display:flex!important;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+  .bottom-row{display:grid!important;grid-template-columns:1fr 1fr 1fr!important;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+  .multi-r-table{display:block!important;}
+  @page{margin:10mm;size:A3 landscape;}
+}
+
+</style>
+</head>
+<body>
+
+<!-- GLOBAL NAV -->
+<nav class="global-nav">
+  <a href="#" class="gn-logo">
+    <span class="gn-leaf"><i class="ti ti-leaf" style="font-size:10px"></i></span>
+    <span class="gn-name">Smart Green Studio</span>
+  </a>
+  <span class="gn-sep"></span>
+  <div class="gn-links">
+    <a class="gn-link" href="#">탄소 계산</a>
+    <a class="gn-link" href="#">식재 추천</a>
+    <a class="gn-link" href="#">사례</a>
+  </div>
+  <div class="gn-right">
+    <i class="ti ti-search gn-icon"></i>
+  </div>
+</nav>
+
+<!-- SUB NAV -->
+<div class="sub-nav">
+  <span class="sn-product">대상지 분석</span>
+  <div class="sn-links">
+    <a class="sn-link" href="#">개요</a>
+    <a class="sn-link" href="#">지도</a>
+    <a class="sn-link" href="#">분석 결과</a>
+    <a class="sn-link" href="#">CSV</a>
+  </div>
+  <div class="sn-right">
+    <div class="api-chip">
+      <i class="ti ti-map-check"></i>
+      <span>OpenStreetMap · API 키 불필요</span>
+    </div>
+  </div>
+</div>
+
+<div class="shell">
+
+<!-- ══ LEFT ══ -->
+<div class="col">
+  <div class="col-hd">
+    <div class="col-hd-eyebrow">Landscape Analysis</div>
+    <div class="col-hd-title">대상지 분석<br>대시보드</div>
+    <div class="col-hd-sub">Landscape Site Intelligence</div>
+  </div>
+  <div class="col-scroll">
+
+    <!-- 01. 대상지 입력 -->
+    <div class="igrp">
+      <div class="ilbl">01 — 대상지 입력</div>
+      <div class="ifield-wrap">
+        <div class="field-lbl">대상지명</div>
+        <input class="ifield" id="siteNameInput" type="text" placeholder="대상지명 (선택)">
+      </div>
+      <div class="ifield-wrap">
+        <div class="field-lbl">주소 <span style="font-size:11px;color:var(--ink-48);font-weight:400">· 도로명 또는 지번+부번</span></div>
+        <input class="ifield" id="addrInput" type="text" placeholder="도로명: 강남구 테헤란로 521 / 지번: 강남구 역삼동 736-2" onkeydown="if(event.key==='Enter') runAnalyze()">
+      </div>
+      <div class="irow">
+        <div class="ifield-wrap" style="flex:1">
+          <div class="field-lbl">위도 <span style="font-size:10px;color:var(--ink-48)">자동</span></div>
+          <input class="ifield" id="latInput" type="text" placeholder="35.096600">
+        </div>
+        <div class="ifield-wrap" style="flex:1">
+          <div class="field-lbl">경도 <span style="font-size:10px;color:var(--ink-48)">자동</span></div>
+          <input class="ifield" id="lngInput" type="text" placeholder="128.917800">
+        </div>
+      </div>
+      <div class="ifield-wrap">
+        <div class="field-lbl">분석 반경</div>
+        <select class="ifield" id="radiusSelect">
+          <option value="250">250m — 근거리권</option>
+          <option value="500" selected>500m — 도보권</option>
+          <option value="1000">1,000m — 생활권</option>
+          <option value="2000">2,000m — 광역권</option>
+        </select>
+      </div>
+      <button class="btn-analyze" onclick="runAnalyze()">
+        <i class="ti ti-search" style="font-size:15px"></i> 대상지 분석 실행
+      </button>
+      <label class="toggle-wrap">
+        <input type="checkbox" id="multiRadiusCheck" onchange="toggleMultiRadius()">
+        다중 반경 동시 분석 (300·500·1000m)
+      </label>
+      <div class="btn-row-2" style="margin-top:10px">
+        <button class="btn-sec" onclick="openCompareModal()"><i class="ti ti-columns-2"></i> 비교 분석</button>
+        <button class="btn-sec" onclick="exportPDF()"><i class="ti ti-printer"></i> PDF 내보내기</button>
+      </div>
+    </div>
+
+    <!-- 02. 데이터 CSV 연결 -->
+    <div class="igrp">
+      <div class="ilbl">02 — 데이터 CSV 연결</div>
+      <div class="csv-unified" id="csv-unified-zone">
+        <input type="file" accept=".csv" multiple id="csv-unified-input" onchange="loadCSVMulti(this)">
+        <div class="csv-unified-icon"><i class="ti ti-upload"></i></div>
+        <div class="csv-unified-label">CSV 파일 선택 또는 드래그</div>
+        <div class="csv-unified-hint">여러 파일 동시 선택 · 헤더를 자동 분석해 분류합니다<br>POI · 식생 · 인구 · 건물 · 토지이용 · 기후 · 공원 · 경관</div>
+      </div>
+      <div class="csv-status-grid">
+        <div class="csv-chip" id="chip-poi"><i class="ti ti-map-pin"></i> POI<span class="csv-chip-check"> ✓</span></div>
+        <div class="csv-chip" id="chip-veg"><i class="ti ti-plant-2"></i> 식생<span class="csv-chip-check"> ✓</span></div>
+        <div class="csv-chip" id="chip-pop"><i class="ti ti-users"></i> 인구<span class="csv-chip-check"> ✓</span></div>
+        <div class="csv-chip" id="chip-bld"><i class="ti ti-building"></i> 건물<span class="csv-chip-check"> ✓</span></div>
+        <div class="csv-chip" id="chip-land"><i class="ti ti-map-2"></i> 토지이용<span class="csv-chip-check"> ✓</span></div>
+        <div class="csv-chip" id="chip-clim"><i class="ti ti-sun"></i> 기후<span class="csv-chip-check"> ✓</span></div>
+        <div class="csv-chip" id="chip-park"><i class="ti ti-trees"></i> 공원<span class="csv-chip-check"> ✓</span></div>
+        <div class="csv-chip" id="chip-land2"><i class="ti ti-eye"></i> 경관<span class="csv-chip-check"> ✓</span></div>
+      </div>
+    </div>
+
+    <!-- 03. 분석 이력 -->
+    <div class="igrp">
+      <div class="ilbl">03 — 분석 이력</div>
+      <div id="histList"><div class="hist-empty">분석 실행 시 자동 저장됩니다.</div></div>
+    </div>
+
+    <!-- 04. 공공 API 연결 -->
+    <div class="igrp">
+      <div class="ilbl">04 — 공공 API 연결</div>
+      <div class="field-lbl" style="margin-top:4px">V-World 용도지역 <span style="font-size:10px;color:var(--ink-48)">(국토정보공사 · 무료)</span></div>
+      <div class="api-key-row">
+        <input class="ifield" id="vworldKeyInput" type="text" placeholder="V-World API 키 입력">
+        <button class="api-key-btn" onclick="applyVWorldKey()">적용</button>
+      </div>
+      <div class="api-key-status" id="vworldStatus">미연결 — <a href="https://api.vworld.kr/req/wms" target="_blank" style="color:var(--blue)">키 발급</a></div>
+      <div class="field-lbl" style="margin-top:10px">KOSIS 인구통계 <span style="font-size:10px;color:var(--ink-48)">(통계청 · 무료)</span></div>
+      <div class="api-key-row">
+        <input class="ifield" id="kosisKeyInput" type="text" placeholder="KOSIS API 키 입력">
+        <button class="api-key-btn" onclick="applyKOSISKey()">적용</button>
+      </div>
+      <div class="api-key-status" id="kosisStatus">미연결 — <a href="https://kosis.kr/openapi" target="_blank" style="color:var(--blue)">키 발급</a></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══ CENTER ══ -->
+<div class="center-col">
+  <!-- KPI strip -->
+  <div class="kpi-strip">
+    <div class="kpi-cell"><div class="kpi-lbl">분석 반경</div><div><span class="kpi-val" id="k-r">—</span></div><div class="kpi-sub">입력 반경 기준 원형 분석권</div></div>
+    <div class="kpi-cell"><div class="kpi-lbl">추정 녹지율</div><div><span class="kpi-val" id="k-g">—</span><span class="kpi-unit">%</span></div><div class="kpi-sub" id="k-gs">산림·녹지 비율</div></div>
+    <div class="kpi-cell"><div class="kpi-lbl">반경 내 시설</div><div><span class="kpi-val" id="k-p">—</span><span class="kpi-unit">개</span></div><div class="kpi-sub">주요 POI 총계</div></div>
+    <div class="kpi-cell"><div class="kpi-lbl">접근성 점수</div><div><span class="kpi-val" id="k-a">—</span></div><div class="kpi-sub">대중교통·생활편의 가중치</div></div>
+    <div class="kpi-cell"><div class="kpi-lbl">녹지 보완 우선</div><div><span class="kpi-val" id="k-pr">—</span></div><div class="kpi-sub">녹지·그늘 보완 우선</div></div>
+  </div>
+
+  <!-- 다중 반경 비교 테이블 -->
+  <div class="multi-r-table" id="multiRadiusTable">
+    <div class="mr-title">반경별 비교 분석 (OSM 실측)</div>
+    <div id="mrTableContent"><div class="mr-loading">분석 중...</div></div>
+  </div>
+
+  <!-- Map -->
+  <div class="map-wrap">
+    <div id="googleMap"></div>
+    <div class="map-overlay" id="ovLoad" style="display:flex">
+      <i class="ti ti-loader spin" style="font-size:28px"></i>
+      <div class="mov-title">지도 초기화 중...</div>
+    </div>
+    <div class="map-layer-toggle">
+      <button class="mlt-btn active" id="btnRoad" onclick="setLayer('road')">
+        <i class="ti ti-map-2"></i> 일반
+      </button>
+      <button class="mlt-btn" id="btnSat" onclick="setLayer('satellite')">
+        <i class="ti ti-satellite"></i> 위성
+      </button>
+      <div class="mlt-sep"></div>
+      <button class="mlt-btn" id="btnTerrain" onclick="toggleTerrain()" title="지형 레이어">
+        <i class="ti ti-mountain"></i> 지형
+      </button>
+      <div class="mlt-sep"></div>
+      <button class="mlt-btn" id="btnVworld" onclick="toggleVWorldLayer()" title="용도지역 (V-World API 키 필요)" style="opacity:.5">
+        <i class="ti ti-layer-difference"></i> 용도
+      </button>
+    </div>
+    <div class="map-legend">
+      <div class="ml"><div class="ml-dot" style="background:#e53935"></div>대상지</div>
+      <div class="ml"><div class="ml-dot" style="background:#22c55e"></div>공원·녹지</div>
+      <div class="ml"><div class="ml-dot" style="background:#60a5fa"></div>대중교통</div>
+      <div class="ml"><div class="ml-dot" style="background:#f59e0b"></div>교육·공공</div>
+      <div class="ml"><div class="ml-dot" style="background:#a78bfa"></div>상업·생활</div>
+      <div class="ml"><div class="ml-dot" style="background:rgba(96,165,250,.2);width:11px;height:11px;border:1.5px solid rgba(96,165,250,.4);border-radius:50%"></div>반경</div>
+      <span class="ml-addr" id="mapAddrLbl"></span>
+    </div>
+  </div>
+
+  <!-- 하단 카드 5개 -->
+  <div class="bottom-row">
+    <div class="bcard">
+      <div class="bcard-title"><i class="ti ti-building-community"></i>도시·군 기본계획</div>
+      <div class="bcard-sub">상위계획 검토 — 용도지역·용적률·생활권</div>
+      <div id="c-urbanBadge"><span class="dim">분석 후 표시</span></div>
+      <div id="c-urbanStats"></div>
+      <div id="c-urbanProg"></div>
+    </div>
+    <div class="bcard">
+      <div class="bcard-title"><i class="ti ti-eye"></i>경관계획</div>
+      <div class="bcard-sub">상위계획 검토 — 경관유형·권고 식재·색채</div>
+      <div id="c-lcBadge"><span class="dim">분석 후 표시</span></div>
+      <div id="c-lcStats"></div>
+      <div class="tagrow" id="c-lcTags"></div>
+    </div>
+    <div class="bcard">
+      <div class="bcard-title"><i class="ti ti-users"></i>인구 및 인문환경</div>
+      <div class="bcard-sub">지역 이해 — 인구·세대·고령화</div>
+      <div id="c-popStats"><span class="dim">분석 후 표시</span></div>
+      <div class="tagrow" id="c-popTags"></div>
+    </div>
+    <div class="bcard">
+      <div class="bcard-title"><i class="ti ti-briefcase"></i>사회 및 경제환경</div>
+      <div class="bcard-sub">지역 이해 — 주용도·상업·교육·공원</div>
+      <div id="c-socStats"><span class="dim">분석 후 표시</span></div>
+      <div class="tagrow" id="c-socTags"></div>
+    </div>
+    <div class="bcard">
+      <div class="bcard-title"><i class="ti ti-leaf"></i>자연환경</div>
+      <div class="bcard-sub">지역 이해 — 토지피복·기후·풍향</div>
+      <div id="c-natStats"><span class="dim">분석 후 표시</span></div>
+      <div class="tagrow" id="c-natTags"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ RIGHT ══ -->
+<div class="col">
+  <div class="col-hd">
+    <div class="col-hd-eyebrow">Analysis Output</div>
+    <div class="col-hd-title">분석 결과</div>
+    <div class="col-hd-sub">공간 판독 · 이슈 자동 도출</div>
+  </div>
+  <div class="col-scroll">
+
+    <div class="rblock">
+      <div class="rblock-title"><i class="ti ti-chart-bar"></i>공간 판독 요약</div>
+      <div class="sum-text" id="r-summary"><span class="dim">분석 실행 후 결과가 여기에 표시됩니다.</span></div>
+      <div class="count-list" id="r-counts"></div>
+    </div>
+
+    <div class="rblock">
+      <div class="rblock-title"><i class="ti ti-alert-triangle"></i>계획 이슈 자동 도출</div>
+      <div class="issue-list" id="r-issues"><span class="dim">분석 실행 후 이슈가 도출됩니다.</span></div>
+    </div>
+
+    <div class="rblock">
+      <div class="rblock-title"><i class="ti ti-map-2"></i>토지이용 현황</div>
+      <div class="pie-wrap">
+        <canvas id="pieCanvas" width="60" height="60"></canvas>
+        <div class="pie-leg" id="r-pieLeg"><span class="dim" style="font-size:12px">CSV 연결 후 표시</span></div>
+      </div>
+    </div>
+
+    <div class="rblock">
+      <div class="rblock-title"><i class="ti ti-building"></i>건물 현황</div>
+      <div id="r-bldStats"><span class="dim">건물 CSV 연결 후 표시</span></div>
+      <div id="r-bldChart" style="margin-top:8px"></div>
+    </div>
+
+    <div class="rblock">
+      <div class="rblock-title"><i class="ti ti-trees"></i>공원·녹지 현황</div>
+      <div id="r-parkStats"><span class="dim">공원·녹지 CSV 연결 후 표시</span></div>
+      <div class="tagrow" id="r-parkTags"></div>
+    </div>
+
+    <div class="rblock">
+      <div class="rblock-title"><i class="ti ti-sun"></i>기후·미기후</div>
+      <div id="r-climStats"><span class="dim">기후 CSV 연결 후 표시</span></div>
+      <div class="climate-chart" id="r-climChart"></div>
+      <div style="display:flex;gap:10px;margin-top:5px">
+        <div class="leg"><div class="leg-dot" style="background:#60a5fa"></div>강수</div>
+        <div class="leg"><div class="leg-dot" style="background:#fb923c"></div>기온</div>
+      </div>
+    </div>
+
+    <div class="rblock">
+      <div class="rblock-title"><i class="ti ti-route"></i>접근성 분석</div>
+      <div id="r-accChart"><span class="dim">분석 실행 후 표시</span></div>
+    </div>
+
+    <div class="rblock">
+      <div class="rblock-title"><i class="ti ti-eye"></i>경관 자원 현황</div>
+      <div id="r-landStats"><span class="dim">경관 자원 CSV 연결 후 표시</span></div>
+    </div>
+
+    <div class="rblock">
+      <div class="rblock-title"><i class="ti ti-list-details"></i>주요 POI 목록</div>
+      <table class="poi-table">
+        <thead><tr><th>분류</th><th>이름</th><th>거리</th><th>해석</th></tr></thead>
+        <tbody id="r-poiTbody"><tr><td colspan="4"><span class="dim">분석 실행 후 표시됩니다.</span></td></tr></tbody>
+      </table>
+    </div>
+
+    <div class="rblock">
+      <div class="rblock-title"><i class="ti ti-news"></i>최근 주요 이슈</div>
+      <div id="r-news"><span class="dim">분석 실행 후 표시됩니다.</span></div>
+    </div>
+
+  </div>
+</div>
+
+</div><!-- /shell -->
+
+<script>
+/* ══════════════════════════════
+   더미 데이터
+══════════════════════════════ */
+const DB = {
+  "부산": {
+    addr:"부산광역시 해운대구 센텀동로 57", lat:35.1695, lng:129.1289,
+    kpi:{r:"500m",g:"18",gs:"산림·녹지 비율",p:"14",a:"82",pr:"도로녹화"},
+    urban:{badge:"2종 일반주거지역",bp:"bpw",fr:200,cr:60,fl:15,lf:"서북권 중심",p1:32,p2:100},
+    lc:{badge:"일반경관관리구역",bp:"bpg",type:"도시·생활경관",lm:"무등산 주조망축",reco:"느티나무·왕벚나무",color:"Y-YR 계열",tags:["경관축 지정","색채기준 적용","조망점 관리"]},
+    pop:{dong:"운일1동",pop:"22,481명",hh:"9,102세대",aging:"19.4%",den:"33,834 m²",tags:["아파트 밀집","노령화 진행","어린이공원 부족"]},
+    soc:{use:"주거",comm:"62개소",sch:"초2·중1",park:"4.2㎡",sat:"42%",tags:["공원 부족","보행환경 개선 필요"]},
+    nat:{forest:18,water:8,paved:74,wind:"북북서",temp:"13.8°C",rain:"1,410mm",tags:["열섬 위험","극한강수 대비"]},
+    summary:"분석 반경 500m 안에서 주요 시설 14개, 식생 패치 3개가 확인된다. 대중교통 거점은 2개, 공원·수변 거점은 1개이며 추정 녹지율은 18%, 접근성 점수는 82점이다.",
+    counts:[{dot:"#22c55e",lbl:"식생·공원",val:3},{dot:"#60a5fa",lbl:"대중교통",val:2},{dot:"#f59e0b",lbl:"교육·공공",val:4},{dot:"#a78bfa",lbl:"상업·생활",val:5}],
+    issues:[
+      {tag:"녹지량 보완 필요",cls:"ita",title:"녹지량 보완 필요",desc:"식생 패치 면적이 낮게 나타난다. 그늘목·완충식재·초지/관목층 보강을 검토한다."},
+      {tag:"대중교통 연계 가능",cls:"itg",title:"대중교통 연계 가능",desc:"정류장·교통 거점과 대상지 진입부를 연결하는 보행 동선 계획이 가능하다."},
+      {tag:"경관축 시야 확보",cls:"itw",title:"경관축 시야 확보 검토",desc:"무등산 주조망축 영향권 내 위치. 건축선 후퇴 및 수목 수고 제한 검토 권장."}
+    ],
+    pois:[
+      {cat:"대중교통",dot:"#60a5fa",name:"센텀시티역",dist:"350m",note:"보행동선 계획 가능"},
+      {cat:"식생·공원",dot:"#22c55e",name:"센텀파크",dist:"420m",note:"완충녹지 연계 검토"},
+      {cat:"교육·공공",dot:"#f59e0b",name:"해운대구청",dist:"680m",note:"공공시설 접근 양호"},
+      {cat:"상업·생활",dot:"#a78bfa",name:"신세계 센텀",dist:"280m",note:"보행환경 개선 연계"},
+      {cat:"교육·공공",dot:"#f59e0b",name:"해운대초등학교",dist:"510m",note:"어린이 보행로 검토"}
+    ],
+    land:[{lbl:"나지·포장",pct:74,color:"rgba(100,100,100,.8)"},{lbl:"산림·녹지",pct:18,color:"rgba(52,199,89,.8)"},{lbl:"하천·수계",pct:8,color:"rgba(96,165,250,.8)"}],
+    bld:{total:"3,241동",avgFl:"5.2층",cover:"38%",rows:[{lbl:"주거",pct:62,color:"rgba(150,150,150,.7)"},{lbl:"상업",pct:21,color:"rgba(100,100,100,.7)"},{lbl:"기타",pct:17,color:"rgba(70,70,70,.7)"}]},
+    park:{perCap:"4.2",total:"18개소",sat:"42%",tags:["소공원 다수","수변공원 1개소","어린이공원 부족"]},
+    clim:{temps:[3,5,9,15,20,24,27,28,23,17,10,4],rain:[40,50,60,90,110,130,180,160,120,70,50,40],avgT:"13.8°C",totalR:"1,410mm"},
+    access:[{name:"대중교통",val:90},{name:"공원·수변",val:45},{name:"생활편의",val:80},{name:"교육·공공",val:62}],
+    land2:[{name:"무등산 조망점",type:"자연경관",vis:"상",note:"주조망축 영향권"},{name:"해운대 해수욕장",type:"수변경관",vis:"중",note:"수변 연계 경관 자원"}],
+    nearParks:[{name:"센텀파크",lat:35.1712,lng:129.1265},{name:"수영강변공원",lat:35.1648,lng:129.1198}],
+    news:[
+      {cat:"도시계획",cls:"itw",title:"센텀2지구 스마트시티 개발 본격화",desc:"2026년 MICE 복합단지 착공 예정. 경관·녹지 확보 기준 강화 논의 중.",date:"2025.04"},
+      {cat:"환경",cls:"itg",title:"수영강 생태복원 2단계 착수",desc:"수영강 일원 85,000㎡ 습지 생태축 복원. 수변 완충녹지 확보 계획 포함.",date:"2025.03"},
+      {cat:"정책",cls:"ita",title:"부산 공원 면적 개선 로드맵",desc:"2030년까지 1인당 공원면적 6㎡ 달성 목표. 생활권 공원 15개소 추가 조성 예정.",date:"2025.02"}
+    ]
+  },
+  "서울": {
+    addr:"서울특별시 용산구 이태원로 22", lat:37.5345, lng:126.9940,
+    kpi:{r:"500m",g:"12",gs:"열섬 고위험 지역",p:"18",a:"95",pr:"가로수 식재"},
+    urban:{badge:"일반상업지역",bp:"bpa",fr:800,cr:60,fl:35,lf:"도심 중심",p1:78,p2:100},
+    lc:{badge:"특별경관관리구역",bp:"bpr",type:"역사·문화경관",lm:"남산 주조망축",reco:"소나무·회화나무",color:"N 계열(무채색)",tags:["고도제한 적용","역사경관 보호","야간경관 관리"]},
+    pop:{dong:"이태원1동",pop:"14,382명",hh:"7,201세대",aging:"12.1%",den:"21,440 m²",tags:["외국인 밀집","젠트리피케이션","상업화 가속"]},
+    soc:{use:"상업·주거혼재",comm:"184개소",sch:"초1·중1",park:"2.1㎡",sat:"31%",tags:["공원 매우 부족","보행환경 양호"]},
+    nat:{forest:12,water:3,paved:85,wind:"북서",temp:"12.5°C",rain:"1,328mm",tags:["열섬 고위험","강우 집중"]},
+    summary:"분석 반경 500m 안에서 주요 시설 18개, 식생 패치 2개가 확인된다. 대중교통 거점은 3개, 공원·수변 거점은 1개이며 추정 녹지율은 12%, 접근성 점수는 95점이다.",
+    counts:[{dot:"#22c55e",lbl:"식생·공원",val:2},{dot:"#60a5fa",lbl:"대중교통",val:3},{dot:"#f59e0b",lbl:"교육·공공",val:5},{dot:"#a78bfa",lbl:"상업·생활",val:8}],
+    issues:[
+      {tag:"녹지 심각 부족",cls:"itr",title:"녹지 심각 부족",desc:"도심 열섬 고위험 지역. 가로수 집중 식재·벽면녹화·포켓파크 조성이 시급하다."},
+      {tag:"남산 조망축 관리",cls:"ita",title:"남산 조망축 관리 필요",desc:"특별경관관리구역 내 위치. 건축물 스카이라인 및 수목 수고 기준 준수 필수."},
+      {tag:"보행 네트워크 활용",cls:"itg",title:"보행 네트워크 활용 가능",desc:"이태원역·버스 정류장과의 접근성이 우수해 보행 위주의 진입 동선 계획이 유리하다."}
+    ],
+    pois:[
+      {cat:"대중교통",dot:"#60a5fa",name:"이태원역 6호선",dist:"180m",note:"핵심 대중교통 거점"},
+      {cat:"식생·공원",dot:"#22c55e",name:"이태원근린공원",dist:"320m",note:"녹지 부족 보완 검토"},
+      {cat:"교육·공공",dot:"#f59e0b",name:"용산구청",dist:"750m",note:"공공시설 접근 가능"},
+      {cat:"상업·생활",dot:"#a78bfa",name:"이태원 상권",dist:"50m",note:"상업지구 경관 관리"},
+      {cat:"대중교통",dot:"#60a5fa",name:"버스정류장",dist:"90m",note:"보행 연계 동선 설계"}
+    ],
+    land:[{lbl:"상업·업무",pct:52,color:"rgba(180,140,60,.8)"},{lbl:"주거",pct:31,color:"rgba(100,100,100,.7)"},{lbl:"녹지·기타",pct:17,color:"rgba(52,199,89,.7)"}],
+    bld:{total:"2,108동",avgFl:"8.4층",cover:"54%",rows:[{lbl:"상업",pct:52,color:"rgba(160,160,160,.7)"},{lbl:"주거",pct:31,color:"rgba(110,110,110,.7)"},{lbl:"기타",pct:17,color:"rgba(70,70,70,.7)"}]},
+    park:{perCap:"2.1",total:"9개소",sat:"31%",tags:["도심공원 부족","남산공원 인접","어린이공원 3개소"]},
+    clim:{temps:[-2,0,5,12,18,23,26,27,22,15,7,0],rain:[25,35,45,75,90,110,200,280,120,50,50,20],avgT:"12.5°C",totalR:"1,328mm"},
+    access:[{name:"대중교통",val:98},{name:"공원·수변",val:35},{name:"생활편의",val:95},{name:"교육·공공",val:70}],
+    land2:[{name:"남산",type:"자연경관",vis:"상",note:"주조망축 핵심 자원"},{name:"한강",type:"수변경관",vis:"상",note:"광역 경관 자원"}],
+    nearParks:[{name:"남산공원",lat:37.5512,lng:126.9882},{name:"이태원근린공원",lat:37.5338,lng:126.9983}],
+    news:[
+      {cat:"도시계획",cls:"itw",title:"용산 국제업무지구 마스터플랜 확정",desc:"2030년 완공 목표. 전체 면적의 30% 공원·녹지 의무 확보 결정.",date:"2025.04"},
+      {cat:"환경",cls:"itg",title:"한강공원 이촌~용산 생태 연결 사업",desc:"단절된 한강변 생태축 복원. 수변 생태통로 및 자생식물 식재 계획.",date:"2025.03"},
+      {cat:"정책",cls:"ita",title:"서울시 도심 열섬 저감 긴급 대책",desc:"이태원·강남 등 열섬 고위험 20개소 쿨링포그·가로수 집중 증식 추진.",date:"2025.02"}
+    ]
+  },
+  "default": {
+    addr:"", lat:36.5, lng:127.5,
+    kpi:{r:"500m",g:"42",gs:"산림·농지 비율 높음",p:"6",a:"58",pr:"보행 연결"},
+    urban:{badge:"제1종 일반주거지역",bp:"bpw",fr:100,cr:50,fl:4,lf:"근린 생활권",p1:45,p2:80},
+    lc:{badge:"일반경관관리구역",bp:"bpg",type:"전원·농촌경관",lm:"인근 산지 조망축",reco:"느릅나무·참나무",color:"GY 계열",tags:["경관보전지역","농촌경관 관리"]},
+    pop:{dong:"해당 행정동",pop:"8,241명",hh:"3,512세대",aging:"24.8%",den:"14,200 m²",tags:["고령화 심화","귀농·귀촌 유입","인구 감소"]},
+    soc:{use:"주거·농업",comm:"28개소",sch:"초1",park:"7.8㎡",sat:"58%",tags:["공원 충분","농촌인프라 부족"]},
+    nat:{forest:42,water:12,paved:46,wind:"북동",temp:"11.2°C",rain:"1,180mm",tags:["산지 인접","하천 범람 주의"]},
+    summary:"분석 반경 500m 안에서 주요 시설 6개, 식생 패치 5개가 확인된다. 대중교통 거점은 1개, 공원·수변 거점은 2개이며 추정 녹지율은 42%, 접근성 점수는 58점이다.",
+    counts:[{dot:"#22c55e",lbl:"식생·공원",val:5},{dot:"#60a5fa",lbl:"대중교통",val:1},{dot:"#f59e0b",lbl:"교육·공공",val:2},{dot:"#a78bfa",lbl:"상업·생활",val:3}],
+    issues:[
+      {tag:"대중교통 부족",cls:"itr",title:"대중교통 접근성 부족",desc:"버스 노선 1개만 운행 중. 자전거 도로 및 보행 친화 환경 개선이 필요하다."},
+      {tag:"녹지 풍부",cls:"itg",title:"녹지 자원 활용 가능",desc:"주변 산림·농지가 풍부하여 생태 연결망 구축 및 경관 보전 계획이 유리하다."},
+      {tag:"인프라 확충 필요",cls:"ita",title:"생활 인프라 확충 필요",desc:"상업·편의시설 접근성이 낮다. 근린시설 유치 또는 이동 서비스 연계 검토 권장."}
+    ],
+    pois:[
+      {cat:"식생·공원",dot:"#22c55e",name:"인근 근린공원",dist:"280m",note:"생태 연결 핵심 거점"},
+      {cat:"대중교통",dot:"#60a5fa",name:"마을버스 정류장",dist:"450m",note:"접근성 개선 검토"},
+      {cat:"교육·공공",dot:"#f59e0b",name:"초등학교",dist:"680m",note:"어린이 보행 안전 검토"},
+      {cat:"상업·생활",dot:"#a78bfa",name:"소형 마트",dist:"520m",note:"생활편의 접근 불리"}
+    ],
+    land:[{lbl:"산림·녹지",pct:42,color:"rgba(52,199,89,.8)"},{lbl:"농지",pct:28,color:"rgba(180,140,60,.7)"},{lbl:"포장·기타",pct:30,color:"rgba(80,80,80,.8)"}],
+    bld:{total:"1,024동",avgFl:"2.1층",cover:"22%",rows:[{lbl:"주거",pct:72,color:"rgba(150,150,150,.7)"},{lbl:"농업시설",pct:18,color:"rgba(110,110,110,.7)"},{lbl:"기타",pct:10,color:"rgba(70,70,70,.7)"}]},
+    park:{perCap:"7.8",total:"6개소",sat:"58%",tags:["근린공원 2개소","수변공원 1개소","어린이공원 3개소"]},
+    clim:{temps:[0,2,7,13,19,23,26,27,21,14,7,2],rain:[30,40,55,80,100,120,160,140,100,60,45,30],avgT:"11.2°C",totalR:"1,180mm"},
+    access:[{name:"대중교통",val:30},{name:"공원·수변",val:75},{name:"생활편의",val:40},{name:"교육·공공",val:50}],
+    land2:[{name:"인근 산지",type:"자연경관",vis:"중",note:"주변 산지 조망 자원"},{name:"하천",type:"수변경관",vis:"하",note:"범람 위험 주의"}],
+    nearParks:[],
+    news:[
+      {cat:"정책",cls:"ita",title:"농촌 경관 보전 지원사업 예산 확대",desc:"2026년 농촌 경관보전직불제 참여 농가 확대. 어메니티 자원 발굴 지원 계획.",date:"2025.04"},
+      {cat:"환경",cls:"itg",title:"지방 소도시 도시숲 조성 공모 선정",desc:"행안부·산림청 공동 추진 생활권 도시숲 조성 공모에 해당 지역 선정 가능성.",date:"2025.03"},
+      {cat:"도시계획",cls:"itw",title:"농촌 난개발 방지 특별법 시행",desc:"무허가 공장·창고 불법 건축물 정비 강화. 경관·녹지 훼손 규제 신설.",date:"2025.02"}
+    ]
+  }
+};
+
+/* ── CSV 상태 ── */
+const csvData = { poi:null, veg:null, pop:null, bld:null, land:null, clim:null, park:null, land2:null };
+
+/* ── Leaflet 상태 ── */
+let mapObj=null, activeMarkers=[], activeIWs=[];
+
+function getData(addr){
+  if(addr.includes("부산")||addr.includes("해운대")||addr.includes("센텀")) return DB["부산"];
+  if(addr.includes("서울")||addr.includes("용산")||addr.includes("이태원")) return DB["서울"];
+  return {...DB["default"],addr};
+}
+
+/* ── Leaflet 레이어 정의 ── */
+let layerRoad=null, layerSat=null, layerTerrain=null;
+let currentBase='road', terrainOn=false;
+
+/* ── Leaflet 초기화 ── */
+function initLeaflet(){
+  if(mapObj) return;
+  mapObj = L.map("googleMap", {
+    center:[36.5, 127.5], zoom:7,
+    zoomControl:true, attributionControl:true,
+    zoomSnap:0.5
+  });
+
+  /* 일반 지도 — OpenStreetMap 표준 */
+  layerRoad = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    maxZoom:19, className:'map-tiles'
+  });
+
+  /* 위성 지도 — ESRI World Imagery */
+  layerSat = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", {
+    attribution:'&copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community',
+    maxZoom:19
+  });
+
+  /* 위성 위 레이블 오버레이 */
+  layerSat._labels = L.tileLayer("https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png", {
+    attribution:'', subdomains:"abcd", maxZoom:19, pane:"overlayPane"
+  });
+
+  /* 지형 레이어 — OpenTopoMap */
+  layerTerrain = L.tileLayer("https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png", {
+    attribution:'Map data: &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, <a href="http://viewfinderpanoramas.org">SRTM</a> | Map style: &copy; <a href="https://opentopomap.org">OpenTopoMap</a>',
+    maxZoom:17, opacity:0.55
+  });
+
+  /* 기본: 일반 지도 활성화 */
+  layerRoad.addTo(mapObj);
+  showOv("none");
+}
+
+/* ── 레이어 전환 ── */
+function setLayer(type){
+  if(!mapObj) return;
+  currentBase=type;
+
+  /* 기존 base 제거 */
+  if(mapObj.hasLayer(layerRoad)) mapObj.removeLayer(layerRoad);
+  if(mapObj.hasLayer(layerSat))  mapObj.removeLayer(layerSat);
+  if(layerSat._labels && mapObj.hasLayer(layerSat._labels)) mapObj.removeLayer(layerSat._labels);
+
+  if(type==='road'){
+    layerRoad.addTo(mapObj);
+    /* 지형 토글 다시 적용 */
+    if(terrainOn) layerTerrain.addTo(mapObj);
+    document.getElementById("btnRoad").classList.add("active");
+    document.getElementById("btnSat").classList.remove("active");
+    document.getElementById("btnTerrain").style.display="flex";
+  } else {
+    layerSat.addTo(mapObj);
+    layerSat._labels.addTo(mapObj);
+    /* 위성 모드에선 지형 숨김 */
+    if(mapObj.hasLayer(layerTerrain)) mapObj.removeLayer(layerTerrain);
+    document.getElementById("btnSat").classList.add("active");
+    document.getElementById("btnRoad").classList.remove("active");
+    document.getElementById("btnTerrain").style.display="none";
+  }
+}
+
+/* ── 지형 레이어 토글 ── */
+function toggleTerrain(){
+  if(!mapObj) return;
+  terrainOn=!terrainOn;
+  const btn=document.getElementById("btnTerrain");
+  if(terrainOn){
+    layerTerrain.addTo(mapObj);
+    btn.classList.add("active");
+  } else {
+    if(mapObj.hasLayer(layerTerrain)) mapObj.removeLayer(layerTerrain);
+    btn.classList.remove("active");
+  }
+}
+
+function showOv(t){
+  document.getElementById("ovLoad").style.display = t==="loading" ? "flex" : "none";
+}
+function clearMapObjs(){
+  activeMarkers.forEach(m=>{try{mapObj.removeLayer(m);}catch(e){}});
+  activeMarkers=[];activeIWs=[];
+}
+
+/* ── 지도 렌더 (Leaflet + Nominatim) ── */
+/* ── Nominatim 속도제한 추적 ── */
+let _lastNominatim=0;
+
+/* ── 한국 주소 Geocoding ──────────────────────────────────────────────────
+   시도 순서:
+   1. 한글+숫자 사이 공백 정규화 (금정로20 → 금정로 20)  ← 핵심 수정
+   2. 원본 주소
+   3. 부번 제거 (123-4 → 123)
+   4. 건물번호 전체 제거 → 동/로 수준
+   5. 마지막 토큰 제거 → 구/군 수준
+   각 시도 사이 1.2s 간격 (Nominatim 1req/s 정책 준수)
+──────────────────────────────────────────────────────────────────────── */
+async function geocodeKorean(addr){
+  const wait=ms=>new Promise(r=>setTimeout(r,ms));
+
+  /* 정규화: 한글 직후 숫자 → 사이에 공백 (금정로20 → 금정로 20) */
+  const norm=addr.replace(/([가-힣])(\d)/g,'$1 $2');
+
+  /* 시도 목록 (중복 제거, 너무 짧은 것 제외) */
+  const raw=[
+    norm,                                                    // 1. 정규화
+    addr,                                                    // 2. 원본
+    norm.replace(/(\d+)-\d+/g,'$1'),                        // 3. 부번 제거
+    norm.replace(/\s+[\d][\d\-]*\s*$/,'').trim(),           // 4. 건물번호 제거
+    norm.replace(/\s+\S+$/,'').trim(),                       // 5. 마지막 단어 제거
+  ];
+  const candidates=[...new Set(raw)].filter(q=>q.length>3);
+
+  for(const q of candidates){
+    const gap=Date.now()-_lastNominatim;
+    if(gap<1200) await wait(1200-gap);
+    _lastNominatim=Date.now();
+    try{
+      const r=await fetch(
+        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=3&countrycodes=kr&accept-language=ko`
+      );
+      if(!r.ok) continue;
+      const data=await r.json();
+      if(data.length>0){
+        console.log(`[Geocode] OK: "${q}" →`,data[0].lat,data[0].lon);
+        return {lat:parseFloat(data[0].lat),lng:parseFloat(data[0].lon)};
+      }
+      console.log(`[Geocode] 0 results: "${q}"`);
+    }catch(e){ console.warn('[Geocode] fetch error:',e); }
+  }
+  console.warn('[Geocode] 모든 시도 실패:', addr);
+  return null;
+}
+
+/* ── 지도 렌더 ── */
+function renderMap(userAddr,d){
+  if(!mapObj) initLeaflet();
+  showOv("loading");
+  clearMapObjs();
+  const radius=parseInt(document.getElementById("radiusSelect").value)||500;
+
+  /* 수동 입력 좌표 우선 확인 (위도·경도 칸을 직접 수정한 경우) */
+  const manLat=parseFloat(document.getElementById("latInput").value);
+  const manLng=parseFloat(document.getElementById("lngInput").value);
+  const hasManual=!isNaN(manLat)&&!isNaN(manLng)&&(Math.abs(manLat)>0||Math.abs(manLng)>0);
+
+  const applyCoords=(lat,lng,fromGeo)=>{
+    document.getElementById("latInput").value=lat.toFixed(6);
+    document.getElementById("lngInput").value=lng.toFixed(6);
+    /* geocode 실패 시 lat/lng 칸에 시각적 표시 */
+    const style=fromGeo?"":"color:#e53935";
+    document.getElementById("latInput").style.cssText=style;
+    document.getElementById("lngInput").style.cssText=style;
+    placeMapItems(d,lat,lng,radius);
+  };
+
+  geocodeKorean(userAddr).then(coords=>{
+    if(coords){
+      applyCoords(coords.lat,coords.lng,true);
+    } else {
+      /* fallback: 수동 입력 좌표 > 더미 */
+      applyCoords(hasManual?manLat:d.lat, hasManual?manLng:d.lng, false);
+    }
+  }).catch(()=>{
+    applyCoords(hasManual?manLat:d.lat, hasManual?manLng:d.lng, false);
+  });
+}
+
+/* ── 폴리곤 면적 (Shoelace + 구면 근사, m²) ── */
+function calcPolyArea(geom){
+  if(!geom||geom.length<3) return 0;
+  let a=0; const n=geom.length; const R=6371000;
+  for(let i=0;i<n;i++){
+    const j=(i+1)%n;
+    const y1=geom[i].lat*Math.PI/180, y2=geom[j].lat*Math.PI/180;
+    const dx=(geom[j].lon-geom[i].lon)*Math.PI/180;
+    a+=dx*(2+Math.sin(y1)+Math.sin(y2));
+  }
+  return Math.abs(a*R*R/2);
+}
+
+/* ── Overpass 결과 처리 + KPI/패널 갱신 ── */
+function processOverpassData(elements, lat, lng, radius){
+  const catColor={"식생·공원":"#22c55e","대중교통":"#60a5fa","교육·공공":"#f59e0b","상업·생활":"#a78bfa"};
+  const mkIcon=col=>L.divIcon({
+    className:"",
+    html:`<div style="width:11px;height:11px;border-radius:50%;background:${col};border:2px solid #fff;box-shadow:0 0 4px rgba(0,0,0,.35)"></div>`,
+    iconSize:[11,11],iconAnchor:[5,5]
+  });
+
+  let transit=0, edu=0, pub=0, commercial=0, greenNodes=0;
+  let noiseRoads=0, parking=0, cycling=0;
+  const greenWays=[], poiRows=[], poiCoords=[];
+
+  elements.forEach(e=>{
+    const t=e.tags||{};
+    const eLat=e.lat??(e.center?.lat);
+    const eLng=e.lon??(e.center?.lon);
+
+    /* 녹지 way → 면적 계산용 */
+    if(e.type==='way'&&e.geometry){
+      const isG=
+        ['forest','grass','meadow','recreation_ground','village_green','orchard'].includes(t.landuse)||
+        ['park','garden','nature_reserve','playground'].includes(t.leisure)||
+        ['wood','scrub','grassland'].includes(t.natural);
+      if(isG) greenWays.push(e.geometry);
+    }
+
+    if(!eLat||!eLng) return;
+
+    /* 반경 체크 */
+    const dlat=(eLat-lat)*111320;
+    const dlng=(eLng-lng)*111320*Math.cos(lat*Math.PI/180);
+    const dist=Math.round(Math.sqrt(dlat*dlat+dlng*dlng));
+    if(dist>radius) return;
+
+    /* 분류 */
+    let cat=null, name=t.name||null;
+    if(t.highway==='bus_stop'||['station','subway_entrance','tram_stop','halt'].includes(t.railway)){
+      cat='대중교통'; transit++;
+      if(!name) name=t.railway==='subway_entrance'?'지하철역 입구':'버스 정류장';
+    } else if(['park','garden','nature_reserve'].includes(t.leisure)){
+      cat='식생·공원'; greenNodes++;
+      if(!name) name='공원·녹지';
+    } else if(['school','kindergarten','university','college'].includes(t.amenity)){
+      cat='교육·공공'; edu++;
+      if(!name) name={school:'학교',kindergarten:'유치원',university:'대학',college:'전문대'}[t.amenity]||t.amenity;
+    } else if(['hospital','clinic','library','community_centre','police','fire_station'].includes(t.amenity)||t.office==='government'){
+      cat='교육·공공'; pub++;
+      if(!name) name=t.amenity||'공공시설';
+    } else if(t.shop||['restaurant','cafe','bar','fast_food','supermarket','convenience','pharmacy'].includes(t.amenity)){
+      cat='상업·생활'; commercial++;
+      if(!name) name=t.shop||t.amenity||'상업시설';
+    }
+
+    /* 소음 도로 (way) */
+    if(e.type==='way'&&['motorway','trunk','primary','secondary'].includes(t.highway)){
+      noiseRoads++;
+    }
+    /* 주차장 */
+    if(t.amenity==='parking'){ parking++; }
+    /* 자전거 도로 */
+    if(e.type==='way'&&(t.highway==='cycleway'||['lane','track','shared'].includes(t.cycleway))){ cycling++; }
+
+    if(cat&&name){
+      const col=catColor[cat];
+      const mk=L.marker([eLat,eLng],{icon:mkIcon(col),zIndexOffset:100})
+        .bindPopup(`<div style="font-size:12px;font-weight:600;color:#111;padding:2px 4px">${name}</div><div style="font-size:10px;color:#555;margin-top:2px">${cat} · ${dist}m</div>`)
+        .addTo(mapObj);
+      activeMarkers.push(mk);
+      if(poiRows.length<15) poiRows.push({cat,dot:col,name,dist:`${dist}m`});
+      if(poiCoords.length<8) poiCoords.push({name,lat:eLat,lng:eLng,cat});
+    }
+  });
+
+  /* 녹지율 */
+  const circleArea=Math.PI*radius*radius;
+  let greenAreaM2=greenWays.reduce((s,g)=>s+calcPolyArea(g),0);
+  /* OSM에 way 없을 경우 노드 수로 추정 (공원 1개 ≈ 5000m²) */
+  if(greenAreaM2===0&&greenNodes>0) greenAreaM2=greenNodes*5000;
+  const greenRatio=Math.min(Math.round(greenAreaM2/circleArea*100),99);
+
+  const totalFacility=transit+edu+pub+commercial+greenNodes;
+
+  /* 접근성 점수 (가중 합산) */
+  const accScore=Math.min(Math.round(
+    Math.min(transit*18,60)*0.45+
+    Math.min((edu+pub)*12,50)*0.25+
+    Math.min(commercial*3,40)*0.20+
+    Math.min(greenNodes*8,30)*0.10
+  ),99);
+
+  /* 녹지 보완 우선순위 */
+  const priority=greenRatio<8?'녹지 긴급 보강':greenRatio<18?'그늘목 식재':transit<2?'보행 연결':'유지·관리';
+
+  /* ── KPI 갱신 ── */
+  const el=id=>document.getElementById(id);
+  el('k-g').textContent=greenRatio;
+  el('k-gs').textContent=`실측 녹지율 (반경 ${radius}m 기준)`;
+  el('k-p').textContent=totalFacility;
+  el('k-a').textContent=accScore;
+  el('k-pr').textContent=priority;
+
+  /* ── 우측 패널 요약 ── */
+  const gTxt=greenRatio<15?'녹지율이 낮아 식재 보강이 필요하다.':greenRatio<30?'녹지 비율은 양호하지만 더 다양한 식생이 필요하다.':'녹지 환경이 우수하다.';
+  const sumEl=el('r-summary');
+  if(sumEl){
+    sumEl.textContent=`분석 반경 ${radius}m 안에서 실제 시설 ${totalFacility}개가 확인됐다. 대중교통 거점 ${transit}개, 교육·공공 ${edu+pub}개, 상업·생활 ${commercial}개이며 녹지율 ${greenRatio}%, 접근성 ${accScore}점이다. ${gTxt}`;
+    sumEl.style.fontStyle='normal';
+    sumEl.style.color='var(--ink-80)';
+  }
+
+  /* 카운트 목록 */
+  const cntEl=el('r-counts');
+  if(cntEl) cntEl.innerHTML=[
+    {dot:'#22c55e',lbl:'식생·공원',val:greenNodes},
+    {dot:'#60a5fa',lbl:'대중교통',val:transit},
+    {dot:'#f59e0b',lbl:'교육·공공',val:edu+pub},
+    {dot:'#a78bfa',lbl:'상업·생활',val:commercial},
+  ].map(c=>`<div class="count-item"><div class="count-dot" style="background:${c.dot}"></div><span class="count-lbl">${c.lbl}</span><span class="count-num">${c.val}</span></div>`).join('');
+
+  /* POI 테이블 */
+  const tbEl=el('r-poiTbody');
+  if(tbEl&&poiRows.length>0){
+    tbEl.innerHTML=poiRows.map(p=>
+      `<tr><td><span class="poi-cat-dot" style="background:${p.dot}"></span>${p.cat}</td>`+
+      `<td style="font-weight:600;color:var(--ink)">${p.name}</td>`+
+      `<td style="color:var(--ink-80)">${p.dist}</td>`+
+      `<td style="color:var(--ink-48);font-size:11px">OSM</td></tr>`
+    ).join('');
+  }
+
+  /* 사회·경제환경 카드 */
+  const socEl=el('c-socStats');
+  if(socEl) socEl.innerHTML=srows([
+    ['대중교통',transit+'개소'],
+    ['교육시설',edu+'개소'],
+    ['상업시설',commercial+'개소'],
+    ['공공시설',pub+'개소'],
+  ]);
+  const tagEl=el('c-socTags');
+  if(tagEl) tagEl.innerHTML=['OSM 실데이터','반경 '+radius+'m'].map(t=>`<span class="tag">${t}</span>`).join('');
+
+  /* 이슈 */
+  const issEl=el('r-issues');
+  if(issEl){
+    const issues=[];
+    if(greenRatio<10) issues.push('⚠️ 녹지율 '+greenRatio+'% — 최소 기준(10%) 미달');
+    if(transit<2)     issues.push('⚠️ 대중교통 접근성 부족 ('+transit+'개소)');
+    if(edu===0)       issues.push('⚠️ 반경 내 교육시설 없음');
+    if(accScore<40)   issues.push('⚠️ 종합 접근성 점수 저조 ('+accScore+'점)');
+    if(noiseRoads>=3) issues.push('⚠️ 간선도로 '+noiseRoads+'개 — 소음 노출 높음');
+    if(cycling===0)   issues.push('ℹ️ 반경 내 자전거 인프라 없음');
+    if(issues.length===0) issues.push('✅ 특별한 취약 요인 없음');
+    issEl.innerHTML=issues.map(s=>`<div style="padding:6px 0;border-bottom:1px solid var(--hairline);font-size:13px;color:var(--ink-80)">${s}</div>`).join('');
+  }
+
+  /* 소음·인프라 → 자연환경 카드 하단 */
+  const noiseScore=noiseRoads===0?'낮음':noiseRoads<3?'보통':'높음';
+  const noiseCls=noiseRoads===0?'noise-low':noiseRoads<3?'noise-mid':'noise-high';
+  const natEl=el('c-natStats');
+  if(natEl) natEl.innerHTML=srows([
+    ['소음 위험',`<span class="${noiseCls}" style="font-weight:700">${noiseScore}</span> (간선도로 ${noiseRoads}개)`],
+    ['주차장',parking+'개소'],['자전거도로',cycling>0?cycling+'개':'없음'],
+    ['녹지율',greenRatio+'%'],
+  ]);
+
+  /* KPI 갱신 후 이력 저장 */
+  saveHistory({addr:document.getElementById('addrInput').value, radius,
+    greenRatio, totalFacility, accScore, priority});
+
+  /* OSRM 보행거리 — 비동기 업데이트 */
+  if(poiCoords.length>0) fetchWalkingDistances(lat, lng, poiCoords);
+}
+
+function placeMapItems(d, lat, lng, radius){
+  showOv("none");
+  mapObj.setView([lat,lng], 16);
+  setTimeout(()=>mapObj.invalidateSize(),50);
+
+  /* 반경 원 */
+  const circ = L.circle([lat,lng],{
+    radius, color:"#60a5fa", weight:1.5,
+    fillColor:"#60a5fa", fillOpacity:0.06, opacity:0.4
+  }).addTo(mapObj);
+  activeMarkers.push(circ);
+
+  /* 대상지 마커 (흰색 원) */
+  const mainIcon = L.divIcon({
+    className:"",
+    html:`<div style="width:16px;height:16px;border-radius:50%;background:#e53935;border:2.5px solid #fff;box-shadow:0 0 8px rgba(229,57,53,.6)"></div>`,
+    iconSize:[16,16], iconAnchor:[8,8]
+  });
+  const addrLabel=document.getElementById("mapAddrLbl").textContent||d.addr;
+  const mm = L.marker([lat,lng],{icon:mainIcon,zIndexOffset:1000})
+    .bindPopup(`<div style="font-size:12px;font-weight:600;color:#111;padding:2px 4px">${addrLabel}</div><div style="font-size:10px;color:#e53935;margin-top:2px">📍 대상지</div>`)
+    .addTo(mapObj);
+  activeMarkers.push(mm);
+
+  /* 공원·녹지 마커 */
+  const parkIcon = color => L.divIcon({
+    className:"",
+    html:`<div style="width:13px;height:13px;border-radius:50%;background:${color};border:2px solid #fff;box-shadow:0 0 4px rgba(0,0,0,.4)"></div>`,
+    iconSize:[13,13], iconAnchor:[6,6]
+  });
+
+  (d.nearParks||[]).forEach(p=>{
+    const pm = L.marker([p.lat,p.lng],{icon:parkIcon("#22c55e"),zIndexOffset:500})
+      .bindPopup(`<div style="font-size:12px;font-weight:600;color:#111;padding:2px 4px">${p.name}</div><div style="font-size:10px;color:#22c55e;margin-top:2px">공원·녹지</div>`)
+      .addTo(mapObj);
+    activeMarkers.push(pm);
+  });
+
+  /* Overpass API — 실측 POI · 녹지 데이터 */
+  const overQ=`[out:json][timeout:30];(
+  way["landuse"~"^(forest|grass|meadow|recreation_ground|village_green|orchard)$"](around:${radius},${lat},${lng});
+  way["leisure"~"^(park|garden|nature_reserve|playground)$"](around:${radius},${lat},${lng});
+  way["natural"~"^(wood|scrub|grassland)$"](around:${radius},${lat},${lng});
+  node["leisure"="park"](around:${radius},${lat},${lng});
+  node["highway"="bus_stop"](around:${radius},${lat},${lng});
+  node["railway"~"^(station|subway_entrance|tram_stop|halt)$"](around:${radius},${lat},${lng});
+  node["amenity"~"^(school|kindergarten|university|college|hospital|clinic|library|community_centre|police|fire_station)$"](around:${radius},${lat},${lng});
+  node["office"="government"](around:${radius},${lat},${lng});
+  node["shop"](around:${radius},${lat},${lng});
+  node["amenity"~"^(restaurant|cafe|bar|fast_food|supermarket|convenience|pharmacy)$"](around:${radius},${lat},${lng});
+  way["highway"~"^(motorway|trunk|primary|secondary)$"](around:${radius},${lat},${lng});
+  node["amenity"="parking"](around:${radius},${lat},${lng});
+  way["highway"="cycleway"](around:${radius},${lat},${lng});
+  way["cycleway"~"^(lane|track|shared)$"](around:${radius},${lat},${lng});
+);out body geom;`;
+  fetch("https://overpass-api.de/api/interpreter",{method:"POST",body:overQ})
+    .then(r=>r.json())
+    .then(data=>processOverpassData(data.elements||[],lat,lng,radius))
+    .catch(e=>console.warn('[Overpass]',e));
+}
+
+/* ── CSV 타입 자동 감지 ── */
+function detectCSVType(headers){
+  const h = headers.map(x => (x||"").toLowerCase().trim());
+  if(h.includes("avg_temp") || h.includes("rainfall") || h.includes("wind_dir")) return "clim";
+  if(h.includes("total_pop") || h.includes("elderly_ratio") || h.includes("grid_id")) return "pop";
+  if(h.includes("bld_id") || h.includes("floors") || h.includes("year_built")) return "bld";
+  if(h.includes("pnu") || (h.includes("zone") && !h.includes("type"))) return "land";
+  if(h.includes("park_id")) return "park";
+  if(h.includes("visibility")) return "land2";
+  if(h.includes("score") && h.includes("category")) return "poi";
+  if(h.includes("area") && h.includes("type") && h.includes("name") && !h.includes("score")) return "veg";
+  return null;
+}
+
+/* ── CSV 통합 다중 업로드 ── */
+function loadCSVMulti(input){
+  const files = Array.from(input.files);
+  files.forEach(file => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const rows = e.target.result.trim().split("\n").map(r => r.split(",").map(c => c.trim()));
+      if(!rows.length) return;
+      const headers = rows[0];
+      const type = detectCSVType(headers);
+      if(!type){ console.warn("알 수 없는 CSV 형식:", headers.join(",")); return; }
+      const data = rows.slice(1).map(r => {
+        const obj = {};
+        headers.forEach((h,i) => obj[h] = r[i]);
+        return obj;
+      });
+      csvData[type] = data;
+      const chip = document.getElementById("chip-" + type);
+      if(chip) chip.classList.add("loaded");
+      updateCSVPanels();
+    };
+    reader.readAsText(file);
+  });
+}
+
+/* ── CSV 로드 ── */
+function loadCSV(input,type){
+  const file=input.files[0];
+  if(!file)return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    const rows=e.target.result.trim().split("\n").map(r=>r.split(",").map(c=>c.trim()));
+    const headers=rows[0];
+    const data=rows.slice(1).map(r=>{
+      const obj={};
+      headers.forEach((h,i)=>obj[h]=r[i]);
+      return obj;
+    });
+    csvData[type]=data;
+    const card=document.getElementById("csv-"+type);
+    if(card){card.classList.add("loaded");}
+    // CSV 연결 시 우측 패널 즉시 갱신
+    updateCSVPanels();
+  };
+  reader.readAsText(file);
+}
+
+function updateCSVPanels(){
+  /* 토지이용 CSV */
+  if(csvData.land){
+    const grouped={};
+    csvData.land.forEach(r=>{
+      const z=r.zone||r.land_use||"기타";
+      const a=parseFloat(r.area)||0;
+      grouped[z]=(grouped[z]||0)+a;
+    });
+    const total=Object.values(grouped).reduce((s,v)=>s+v,0);
+    const colors=["rgba(52,199,89,.8)","rgba(96,165,250,.8)","rgba(251,146,60,.8)","rgba(100,100,100,.8)","rgba(167,139,250,.8)"];
+    const pieData=Object.entries(grouped).slice(0,5).map(([k,v],i)=>({lbl:k,pct:Math.round(v/total*100),color:colors[i%colors.length]}));
+    drawPie(pieData);
+  }
+  /* 건물 CSV */
+  if(csvData.bld){
+    const total=csvData.bld.length;
+    const useMap={};
+    csvData.bld.forEach(r=>{const u=r.use||"기타";useMap[u]=(useMap[u]||0)+1;});
+    const avgFl=(csvData.bld.reduce((s,r)=>s+(parseFloat(r.floors)||0),0)/total).toFixed(1);
+    const avgYear=Math.round(csvData.bld.reduce((s,r)=>s+(parseInt(r.year_built)||2000),0)/total);
+    document.getElementById("r-bldStats").innerHTML=
+      srows([["총 건물수",total+"동"],["평균층수",avgFl+"층"],["평균 건축연도",avgYear+"년"]]);
+    const rows=Object.entries(useMap).slice(0,4).map(([k,v])=>({lbl:k,pct:Math.round(v/total*100),color:"rgba(150,150,150,.7)"}));
+    document.getElementById("r-bldChart").innerHTML=rows.map(r=>`<div class="bar-row"><span class="bar-name">${r.lbl}</span><div class="bar-track"><div class="bar-fill" style="width:${r.pct}%;background:${r.color}">${r.pct}%</div></div></div>`).join("");
+  }
+  /* 공원·녹지 CSV */
+  if(csvData.park){
+    const total=csvData.park.length;
+    const totalArea=csvData.park.reduce((s,r)=>s+(parseFloat(r.area)||0),0);
+    document.getElementById("r-parkStats").innerHTML=srows([["공원 개소",total+"개소"],["총 면적",totalArea.toLocaleString()+"㎡"]]);
+    const types=[...new Set(csvData.park.map(r=>r.type||"기타"))].slice(0,4);
+    document.getElementById("r-parkTags").innerHTML=types.map(t=>`<span class="tag">${t}</span>`).join("");
+  }
+  /* 기후 CSV */
+  if(csvData.clim){
+    const temps=csvData.clim.map(r=>parseFloat(r.avg_temp)||0);
+    const rains=csvData.clim.map(r=>parseFloat(r.rainfall)||0);
+    const avgT=(temps.reduce((s,v)=>s+v,0)/temps.length).toFixed(1);
+    const totalR=Math.round(rains.reduce((s,v)=>s+v,0));
+    document.getElementById("r-climStats").innerHTML=srows([["연평균기온",avgT+"°C"],["연강수량",totalR+"mm"]]);
+    renderClimateChart(temps,rains);
+  }
+  /* 경관 자원 CSV */
+  if(csvData.land2){
+    document.getElementById("r-landStats").innerHTML=csvData.land2.map(r=>
+      `<div class="sr"><span class="sk">${r.name||""} <span style="color:var(--ink5)">${r.type||""}</span></span><span class="sv" style="font-size:9px">${r.note||r.visibility||""}</span></div>`
+    ).join("");
+  }
+  /* 인구 CSV */
+  if(csvData.pop){
+    const total=csvData.pop.reduce((s,r)=>s+(parseFloat(r.total_pop)||0),0);
+    const avgAging=(csvData.pop.reduce((s,r)=>s+(parseFloat(r.elderly_ratio)||0),0)/csvData.pop.length).toFixed(1);
+    // 인구 패널에 반영
+    const popEl=document.getElementById("c-popStats");
+    if(popEl) popEl.innerHTML=srows([["격자 총 인구",Math.round(total).toLocaleString()+"명"],["평균 고령화율",avgAging+"%"]]);
+  }
+}
+
+/* ── 기후 차트 (재사용) ── */
+function renderClimateChart(temps,rains){
+  const maxR=Math.max(...rains),minT=Math.min(...temps),maxT=Math.max(...temps);
+  const mos=["1","2","3","4","5","6","7","8","9","10","11","12"];
+  document.getElementById("r-climChart").innerHTML=mos.map((m,i)=>{
+    const rh=Math.round(((rains[i]||0)/maxR)*30);
+    const th=Math.round((((temps[i]||0)-minT)/(maxT-minT||1))*20)+2;
+    const rc=(rains[i]||0)>130?"#1d4ed8":"#60a5fa";
+    const tc=(temps[i]||0)>22?"#ef4444":(temps[i]||0)>12?"#fb923c":"#60a5fa";
+    return `<div class="climate-col"><div class="climate-bars"><div class="climate-bar" style="height:${th}px;background:${tc};opacity:.8"></div><div class="climate-bar" style="height:${rh}px;background:${rc};opacity:.6"></div></div><span class="climate-mo">${m}</span></div>`;
+  }).join("");
+}
+
+/* ── 분석 실행 ── */
+function runAnalyze(){
+  const addr=document.getElementById("addrInput").value.trim();
+  if(!addr){document.getElementById("addrInput").focus();return;}
+  const raw=getData(addr);
+  const d={...raw,addr:addr};
+  // lat/lng 입력란은 Geocoding 성공 시 자동 갱신 — 수동 입력값 유지
+  renderAll(d);
+  renderMap(addr,d);
+  /* KOSIS 인구 데이터 (키 있을 때) */
+  if(_kosisKey||localStorage.getItem('sgs_kosis_key')) fetchKOSISPop(addr);
+  document.getElementById("mapAddrLbl").textContent=addr;
+}
+
+/* ── 헬퍼 ── */
+function el(id){return document.getElementById(id);}
+function srows(arr){return arr.map(r=>`<div class="sr"><span class="sk">${r[0]}</span><span class="sv">${r[1]}</span></div>`).join("");}
+
+/* ── 전체 렌더 ── */
+function renderAll(d){
+  /* KPI */
+  el("k-r").textContent=d.kpi.r; el("k-g").textContent=d.kpi.g; el("k-gs").textContent=d.kpi.gs;
+  el("k-p").textContent=d.kpi.p; el("k-a").textContent=d.kpi.a; el("k-pr").textContent=d.kpi.pr;
+
+  /* ── 하단 카드: 도시·군 기본계획 ── */
+  const u=d.urban;
+  el("c-urbanBadge").innerHTML=`<span class="bp ${u.bp}">${u.badge}</span>`;
+  el("c-urbanStats").innerHTML=srows([["용적률",u.fr+"%"],["건폐율",u.cr+"%"],["최고층수",u.fl+"층"],["생활권역",u.lf]]);
+  el("c-urbanProg").innerHTML=`
+    <div class="prog-row"><span class="prog-lbl">착수 계획</span><div class="prog-track"><div class="prog-fill" style="width:${u.p1}%"></div></div><span class="prog-pct">${u.p1}%</span></div>
+    <div class="prog-row"><span class="prog-lbl">완료율</span><div class="prog-track"><div class="prog-fill prog-fg" style="width:${u.p2}%"></div></div><span class="prog-pct">${u.p2}%</span></div>`;
+
+  /* ── 하단 카드: 경관계획 ── */
+  const lc=d.lc;
+  el("c-lcBadge").innerHTML=`<span class="bp ${lc.bp}">${lc.badge}</span>`;
+  el("c-lcStats").innerHTML=srows([["경관유형",lc.type],["조망지정",lc.lm],["권고 식재",lc.reco],["색채 기준",lc.color]]);
+  el("c-lcTags").innerHTML=lc.tags.map(t=>`<span class="tag">${t}</span>`).join("");
+
+  /* ── 하단 카드: 인구 및 인문환경 ── */
+  const p=d.pop;
+  el("c-popStats").innerHTML=srows([["행정동",p.dong],["인구",p.pop],["세대수",p.hh],["고령화율",p.aging],["인구밀도",p.den]]);
+  el("c-popTags").innerHTML=p.tags.map(t=>`<span class="tag">${t}</span>`).join("");
+
+  /* ── 하단 카드: 사회 및 경제환경 ── */
+  const s=d.soc;
+  el("c-socStats").innerHTML=srows([["주용도지역",s.use],["상업시설",s.comm],["학교",s.sch],["1인당 공원",s.park],["공원 충족도",s.sat]]);
+  el("c-socTags").innerHTML=s.tags.map(t=>`<span class="tag">${t}</span>`).join("");
+
+  /* ── 하단 카드: 자연환경 ── */
+  const n=d.nat;
+  el("c-natStats").innerHTML=srows([["산림·녹지",n.forest+"%"],["하천·수계",n.water+"%"],["나지·포장",n.paved+"%"],["주풍향",n.wind],["연평균기온",n.temp],["연강수량",n.rain]]);
+  el("c-natTags").innerHTML=n.tags.map(t=>`<span class="tag">${t}</span>`).join("");
+
+  /* ── 우측: 공간 판독 요약 ── */
+  el("r-summary").textContent=d.summary;
+  el("r-summary").style.fontStyle="normal";
+  el("r-summary").style.color="var(--ink3)";
+  el("r-counts").innerHTML=d.counts.map(c=>`<div class="count-item"><div class="count-dot" style="background:${c.dot}"></div><span class="count-lbl">${c.lbl}</span><span class="count-num">${c.val}</span></div>`).join("");
+
+  /* 계획 이슈 */
+  el("r-issues").innerHTML=d.issues.map(iss=>`<div class="issue-item"><span class="itag ${iss.cls}">${iss.tag}</span><div class="issue-title">${iss.title}</div><div class="issue-desc">${iss.desc}</div></div>`).join("");
+
+  /* 토지이용 (더미) — CSV 없을 때 */
+  if(!csvData.land) drawPie(d.land);
+
+  /* 건물 (더미) */
+  if(!csvData.bld){
+    const b=d.bld;
+    el("r-bldStats").innerHTML=srows([["총 건물수",b.total],["평균층수",b.avgFl],["건폐율(실측)",b.cover]]);
+    el("r-bldChart").innerHTML=b.rows.map(r=>`<div class="bar-row"><span class="bar-name">${r.lbl}</span><div class="bar-track"><div class="bar-fill" style="width:${r.pct}%;background:${r.color}">${r.pct}%</div></div></div>`).join("");
+  }
+
+  /* 공원·녹지 (더미) */
+  if(!csvData.park){
+    const pk=d.park;
+    el("r-parkStats").innerHTML=srows([["1인당 공원",pk.perCap+"㎡"],["공원 개소",pk.total],["충족도",pk.sat]]);
+    el("r-parkTags").innerHTML=pk.tags.map(t=>`<span class="tag">${t}</span>`).join("");
+  }
+
+  /* 기후 (더미) */
+  if(!csvData.clim){
+    const cl=d.clim;
+    el("r-climStats").innerHTML=srows([["연평균기온",cl.avgT],["연강수량",cl.totalR]]);
+    renderClimateChart(cl.temps,cl.rain);
+  }
+
+  /* 접근성 */
+  el("r-accChart").innerHTML=d.access.map(a=>`<div class="acc-row"><span class="acc-name">${a.name}</span><div class="acc-track"><div class="acc-fill" style="width:${a.val}%"></div></div><span class="acc-val">${a.val}</span></div>`).join("");
+
+  /* 경관 자원 (더미) */
+  if(!csvData.land2){
+    el("r-landStats").innerHTML=d.land2.map(r=>`<div class="sr"><span class="sk">${r.name} <span style="color:var(--ink5)">${r.type}</span></span><span class="sv" style="font-size:9px">${r.note}</span></div>`).join("");
+  }
+
+  /* POI */
+  el("r-poiTbody").innerHTML=d.pois.map(p=>`<tr><td><span class="poi-cat-dot" style="background:${p.dot}"></span>${p.cat}</td><td style="font-weight:600;color:var(--ink2)">${p.name}</td><td style="color:var(--ink3)">${p.dist}</td><td style="color:var(--ink4);font-size:8px">${p.note}</td></tr>`).join("");
+
+  /* 최근 이슈 뉴스 */
+  el("r-news").innerHTML=d.news.map(n=>`<div class="news-item"><span class="news-cat ${n.cls}">${n.cat}</span><h4>${n.title}</h4><p>${n.desc}</p><div class="news-date">${n.date}</div></div>`).join("");
+
+  /* CSV 연결된 게 있으면 덮어씌우기 */
+  updateCSVPanels();
+}
+
+function drawPie(data){
+  const canvas=el("pieCanvas"),ctx=canvas.getContext("2d");
+  const total=data.reduce((s,d)=>s+(d.pct||0),0)||1;
+  let start=-Math.PI/2;
+  ctx.clearRect(0,0,60,60);
+  data.forEach(seg=>{
+    const a=(seg.pct/total)*Math.PI*2;
+    ctx.beginPath();ctx.moveTo(30,30);ctx.arc(30,30,28,start,start+a);ctx.closePath();
+    ctx.fillStyle=seg.color||"#555";ctx.fill();start+=a;
+  });
+  ctx.beginPath();ctx.arc(30,30,11,0,Math.PI*2);ctx.fillStyle="#ffffff";ctx.fill();
+  el("r-pieLeg").innerHTML=data.map(seg=>`<div class="leg"><div class="leg-dot" style="background:${seg.color}"></div><span>${seg.lbl||seg.label} ${seg.pct}%</span></div>`).join("");
+}
+
+/* ══════════════════════════════════════════
+   OSRM 보행거리 (공개 데모 서버, 무료)
+══════════════════════════════════════════ */
+async function fetchWalkingDistances(siteLat, siteLng, pois){
+  if(!pois||pois.length===0) return;
+  /* OSRM table API: source=사이트, destinations=POI 목록 */
+  const coords=[[siteLng,siteLat],...pois.map(p=>[p.lng,p.lat])];
+  const coordStr=coords.map(c=>c.join(',')).join(';');
+  const url=`https://router.project-osrm.org/table/v1/foot/${coordStr}?sources=0&annotations=duration`;
+  try{
+    const r=await fetch(url);
+    if(!r.ok) return;
+    const data=await r.json();
+    if(!data.durations||!data.durations[0]) return;
+    const durs=data.durations[0].slice(1); // 0번은 자기 자신(0초)
+    /* POI 테이블 rows 업데이트 */
+    const rows=document.querySelectorAll('#r-poiTbody tr');
+    rows.forEach((row,i)=>{
+      if(i>=durs.length||durs[i]==null) return;
+      const sec=Math.round(durs[i]);
+      const min=Math.ceil(sec/60);
+      const distCell=row.cells[2];
+      if(distCell){
+        const badge=`<span class="walk-badge"><i class="ti ti-walk" style="font-size:9px"></i> ${min}분</span>`;
+        distCell.innerHTML=distCell.textContent+badge;
+      }
+    });
+  }catch(e){ console.warn('[OSRM]',e); }
+}
+
+/* ══════════════════════════════════════════
+   다중 반경 분석
+══════════════════════════════════════════ */
+function toggleMultiRadius(){
+  const checked=document.getElementById('multiRadiusCheck').checked;
+  const tbl=document.getElementById('multiRadiusTable');
+  if(!checked){ tbl.style.display='none'; return; }
+  tbl.style.display='block';
+  const lat=parseFloat(document.getElementById('latInput').value);
+  const lng=parseFloat(document.getElementById('lngInput').value);
+  if(isNaN(lat)||isNaN(lng)){ 
+    document.getElementById('mrTableContent').innerHTML='<div class="mr-loading">먼저 대상지 분석을 실행하세요.</div>';
+    return; 
+  }
+  runMultiRadiusAnalysis(lat,lng);
+}
+
+async function runMultiRadiusAnalysis(lat,lng){
+  const tbl=document.getElementById('multiRadiusTable');
+  const content=document.getElementById('mrTableContent');
+  tbl.style.display='block';
+  content.innerHTML='<div class="mr-loading"><i class="ti ti-loader spin"></i> 3개 반경 데이터 수집 중 (Overpass API)...</div>';
+
+  const radii=[{r:300,color:'#22c55e'},{r:500,color:'#60a5fa'},{r:1000,color:'#a78bfa'}];
+  const results=[];
+
+  for(const {r,color} of radii){
+    /* 각 반경별로 간략 Overpass 쿼리 */
+    const q=`[out:json][timeout:20];(
+  way["landuse"~"^(forest|grass|meadow|recreation_ground|village_green)$"](around:${r},${lat},${lng});
+  way["leisure"~"^(park|garden|nature_reserve)$"](around:${r},${lat},${lng});
+  way["natural"~"^(wood|scrub|grassland)$"](around:${r},${lat},${lng});
+  node["highway"="bus_stop"](around:${r},${lat},${lng});
+  node["railway"~"^(station|subway_entrance|tram_stop)$"](around:${r},${lat},${lng});
+  node["amenity"~"^(school|kindergarten|university|college|hospital|clinic|library)$"](around:${r},${lat},${lng});
+  node["shop"](around:${r},${lat},${lng});
+  node["leisure"="park"](around:${r},${lat},${lng});
+);out body geom;`;
+    try{
+      const res=await fetch('https://overpass-api.de/api/interpreter',{method:'POST',body:q});
+      const data=await res.json();
+      const els=data.elements||[];
+
+      let green=0,facilities=0,greenW=[];
+      els.forEach(e=>{
+        const t=e.tags||{};
+        if(e.type==='way'&&e.geometry){
+          const isG=['forest','grass','meadow','recreation_ground','village_green'].includes(t.landuse)||
+            ['park','garden','nature_reserve'].includes(t.leisure)||
+            ['wood','scrub','grassland'].includes(t.natural);
+          if(isG) greenW.push(e.geometry);
+        }
+        if(e.type==='node'){
+          if(t.highway==='bus_stop'||t.railway||t.amenity||t.shop||['park','garden'].includes(t.leisure)) facilities++;
+        }
+      });
+
+      const circA=Math.PI*r*r;
+      const gArea=greenW.reduce((s,g)=>s+calcPolyArea(g),0);
+      let gRatio=Math.min(Math.round((gArea/circA)*100),99);
+      if(gRatio===0&&green>0) gRatio=Math.min(green*3,40);
+
+      const acc=Math.min(Math.round(Math.min(facilities*4,99)),99);
+      const pri=gRatio<8?'녹지 보강':gRatio<18?'그늘목':acc<40?'보행연결':'양호';
+      results.push({r,color,gRatio,facilities,acc,pri});
+    }catch(e){
+      results.push({r,color,gRatio:'오류',facilities:'오류',acc:'오류',pri:'—'});
+    }
+    /* Overpass rate limit */
+    await new Promise(res=>setTimeout(res,1200));
+  }
+
+  /* 현재 선택 반경 */
+  const curR=parseInt(document.getElementById('radiusSelect').value)||500;
+
+  /* 최고값 계산 */
+  const maxG=Math.max(...results.map(x=>typeof x.gRatio==='number'?x.gRatio:0));
+  const maxF=Math.max(...results.map(x=>typeof x.facilities==='number'?x.facilities:0));
+  const maxA=Math.max(...results.map(x=>typeof x.acc==='number'?x.acc:0));
+
+  const rows=results.map(({r,color,gRatio,facilities,acc,pri})=>{
+    const isCur=r===curR;
+    const gWin=gRatio===maxG&&maxG>0;
+    const fWin=facilities===maxF&&maxF>0;
+    const aWin=acc===maxA&&maxA>0;
+    return `<tr${isCur?' style="background:rgba(0,102,204,.04)"':''}>
+      <td><span class="mr-badge" style="color:${color};border-color:${color};background:${color}18">${r}m${isCur?' ◀':''}</span></td>
+      <td class="${gWin?'mr-win':''}">${gRatio}%</td>
+      <td class="${fWin?'mr-win':''}">${facilities}개</td>
+      <td class="${aWin?'mr-win':''}">${acc}점</td>
+      <td style="font-size:11px;color:var(--ink-48)">${pri}</td>
+    </tr>`;
+  }).join('');
+
+  content.innerHTML=`<table class="mr-tbl">
+    <thead><tr><th>반경</th><th>녹지율</th><th>시설수</th><th>접근성</th><th>우선순위</th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table><div style="font-size:10px;color:var(--ink-48);margin-top:7px;text-align:right">◀ 현재 선택 반경 · 굵은 값 = 반경 내 최고</div>`;
+
+  /* 지도에 3개 원 추가 */
+  if(window._mrCircles) window._mrCircles.forEach(c=>mapObj.removeLayer(c));
+  window._mrCircles=results.map(({r,color})=>
+    L.circle([lat,lng],{radius:r,color,weight:1.5,fillOpacity:.04,opacity:.5,dashArray:'6 4'}).addTo(mapObj)
+  );
+}
+
+/* ══════════════════════════════════════════
+   이력 저장 (localStorage)
+══════════════════════════════════════════ */
+function saveHistory({addr,radius,greenRatio,totalFacility,accScore,priority}){
+  if(!addr) return;
+  try{
+    const key='sgs_history';
+    let hist=JSON.parse(localStorage.getItem(key)||'[]');
+    /* 동일 주소 제거 */
+    hist=hist.filter(h=>h.addr!==addr);
+    hist.unshift({addr,radius,greenRatio,totalFacility,accScore,priority,ts:Date.now()});
+    hist=hist.slice(0,6);
+    localStorage.setItem(key,JSON.stringify(hist));
+    renderHistory();
+  }catch(e){}
+}
+
+function renderHistory(){
+  const container=document.getElementById('histList');
+  if(!container) return;
+  try{
+    const hist=JSON.parse(localStorage.getItem('sgs_history')||'[]');
+    if(hist.length===0){
+      container.innerHTML='<div class="hist-empty">분석 실행 시 자동 저장됩니다.</div>';
+      return;
+    }
+    container.innerHTML=hist.map((h,i)=>`
+      <div class="hist-item" onclick="loadHistory('${encodeURIComponent(h.addr)}',${h.radius})">
+        <span class="hist-num">${i+1}</span>
+        <span class="hist-addr">${h.addr}</span>
+        <span class="hist-score">녹${h.greenRatio}% · 접${h.accScore}</span>
+      </div>`).join('');
+  }catch(e){}
+}
+
+function loadHistory(encodedAddr, radius){
+  const addr=decodeURIComponent(encodedAddr);
+  document.getElementById('addrInput').value=addr;
+  if(radius) document.getElementById('radiusSelect').value=String(radius);
+  runAnalyze();
+}
+
+/* ══════════════════════════════════════════
+   PDF 내보내기 (브라우저 인쇄 → PDF 저장)
+══════════════════════════════════════════ */
+function exportPDF(){
+  const siteName=document.getElementById('siteNameInput').value||'대상지';
+  const addr=document.getElementById('addrInput').value||'—';
+  /* 인쇄 전 타이틀 임시 변경 */
+  const origTitle=document.title;
+  document.title=`[SmartGreenStudio] ${siteName} 분석 리포트`;
+  window.print();
+  setTimeout(()=>{ document.title=origTitle; },2000);
+}
+
+/* ══════════════════════════════════════════
+   대상지 비교 모달
+══════════════════════════════════════════ */
+function openCompareModal(){
+  const modal=document.getElementById('compareModal');
+  /* 현재 주소 A에 자동 채우기 */
+  const cur=document.getElementById('addrInput').value;
+  if(cur) document.getElementById('cmpAddrA').value=cur;
+  modal.classList.add('open');
+}
+function closeCompareModal(){
+  document.getElementById('compareModal').classList.remove('open');
+}
+
+async function runCompare(){
+  const addrA=document.getElementById('cmpAddrA').value.trim();
+  const addrB=document.getElementById('cmpAddrB').value.trim();
+  const rA=parseInt(document.getElementById('cmpRadiusA').value);
+  const rB=parseInt(document.getElementById('cmpRadiusB').value);
+  if(!addrA||!addrB){ alert('두 주소를 모두 입력하세요.'); return; }
+
+  const res=document.getElementById('compareResult');
+  res.innerHTML='<div class="compare-loading"><i class="ti ti-loader spin"></i> 두 대상지 지오코딩 및 Overpass 데이터 수집 중…</div>';
+
+  const [cA, cB]=await Promise.all([geocodeKorean(addrA), geocodeKorean(addrB)]);
+  if(!cA||!cB){
+    res.innerHTML='<div class="compare-loading" style="color:#e53935">지오코딩 실패. 더 구체적인 주소를 입력해주세요.</div>';
+    return;
+  }
+
+  async function fetchKPIs(lat,lng,radius){
+    const q=`[out:json][timeout:20];(
+  way["landuse"~"^(forest|grass|meadow|recreation_ground|village_green)$"](around:${radius},${lat},${lng});
+  way["leisure"~"^(park|garden|nature_reserve)$"](around:${radius},${lat},${lng});
+  way["natural"~"^(wood|scrub|grassland)$"](around:${radius},${lat},${lng});
+  node["highway"="bus_stop"](around:${radius},${lat},${lng});
+  node["railway"~"^(station|subway_entrance|tram_stop)$"](around:${radius},${lat},${lng});
+  node["amenity"~"^(school|kindergarten|university|college|hospital|clinic|library)$"](around:${radius},${lat},${lng});
+  node["shop"](around:${radius},${lat},${lng});
+  node["leisure"="park"](around:${radius},${lat},${lng});
+);out body geom;`;
+    const r=await fetch('https://overpass-api.de/api/interpreter',{method:'POST',body:q});
+    const data=await r.json();
+    const els=data.elements||[];
+    let greenW=[],facilities=0,transit=0,edu=0;
+    els.forEach(e=>{
+      const t=e.tags||{};
+      if(e.type==='way'&&e.geometry){
+        const isG=['forest','grass','meadow','recreation_ground'].includes(t.landuse)||
+          ['park','garden'].includes(t.leisure)||['wood','scrub'].includes(t.natural);
+        if(isG) greenW.push(e.geometry);
+      }
+      if(e.type==='node'){
+        if(t.highway==='bus_stop'||t.railway) transit++;
+        if(t.amenity||t.shop) facilities++;
+      }
+    });
+    const circA=Math.PI*radius*radius;
+    const gA=greenW.reduce((s,g)=>s+calcPolyArea(g),0);
+    const gRatio=Math.min(Math.round(gA/circA*100),99)||0;
+    const acc=Math.min(Math.round(Math.min(transit*18,60)*0.5+Math.min(facilities*3,40)*0.5),99);
+    const pri=gRatio<8?'녹지 보강':gRatio<18?'그늘목 식재':transit<2?'보행 연결':'양호';
+    return {gRatio,facilities:facilities+transit,acc,transit,pri};
+  }
+
+  res.innerHTML='<div class="compare-loading"><i class="ti ti-loader spin"></i> Overpass API에서 각 대상지 데이터 수집 중…</div>';
+  await new Promise(r=>setTimeout(r,200));
+
+  const kA=await fetchKPIs(cA.lat,cA.lng,rA);
+  await new Promise(r=>setTimeout(r,1200)); // rate limit
+  const kB=await fetchKPIs(cB.lat,cB.lng,rB);
+
+  const metrics=[
+    {lbl:'반경',a:`${rA}m`,b:`${rB}m`,winA:false,winB:false},
+    {lbl:'추정 녹지율',a:`${kA.gRatio}%`,b:`${kB.gRatio}%`,winA:kA.gRatio>kB.gRatio,winB:kB.gRatio>kA.gRatio},
+    {lbl:'시설 수',a:`${kA.facilities}개`,b:`${kB.facilities}개`,winA:kA.facilities>kB.facilities,winB:kB.facilities>kA.facilities},
+    {lbl:'접근성 점수',a:`${kA.acc}점`,b:`${kB.acc}점`,winA:kA.acc>kB.acc,winB:kB.acc>kA.acc},
+    {lbl:'대중교통',a:`${kA.transit}개소`,b:`${kB.transit}개소`,winA:kA.transit>kB.transit,winB:kB.transit>kA.transit},
+    {lbl:'우선순위',a:kA.pri,b:kB.pri,winA:false,winB:false},
+  ];
+
+  const rows=metrics.map(m=>`<tr>
+    <td class="c-metric">${m.lbl}</td>
+    <td class="${m.winA?'compare-win':''}">${m.a}</td>
+    <td class="${m.winB?'compare-win':''}">${m.b}</td>
+  </tr>`).join('');
+
+  res.innerHTML=`<table class="compare-table">
+    <thead><tr>
+      <th>지표</th>
+      <th style="color:var(--blue)">A — ${addrA.slice(0,20)}${addrA.length>20?'…':''}</th>
+      <th style="color:#a78bfa">B — ${addrB.slice(0,20)}${addrB.length>20?'…':''}</th>
+    </tr></thead>
+    <tbody>${rows}</tbody>
+  </table>
+  <div style="font-size:10px;color:var(--ink-48);margin-top:8px;text-align:right">굵은 값 = 해당 지표 우위</div>`;
+}
+
+/* ══════════════════════════════════════════
+   V-World 용도지역 WMS 레이어
+══════════════════════════════════════════ */
+let _vworldLayer=null;
+let _vworldKey='';
+
+function applyVWorldKey(){
+  const key=document.getElementById('vworldKeyInput').value.trim();
+  if(!key){ alert('V-World API 키를 입력하세요.'); return; }
+  _vworldKey=key;
+  document.getElementById('vworldStatus').innerHTML=
+    '<span style="color:#22c55e">✅ 키 저장됨 — 지도 레이어 버튼으로 표시</span>';
+  document.getElementById('btnVworld').style.opacity='1';
+  localStorage.setItem('sgs_vworld_key',key);
+}
+
+function toggleVWorldLayer(){
+  const btn=document.getElementById('btnVworld');
+  if(_vworldLayer){
+    mapObj.removeLayer(_vworldLayer);
+    _vworldLayer=null;
+    btn.classList.remove('active');
+    return;
+  }
+  const key=_vworldKey||localStorage.getItem('sgs_vworld_key')||'';
+  if(!key){
+    alert('04 — 공공 API 연결 섹션에서 V-World API 키를 먼저 입력하세요.');
+    return;
+  }
+  _vworldLayer=L.tileLayer.wms(
+    `https://api.vworld.kr/req/wms?KEY=${key}&domain=`,
+    {layers:'lt_c_uq111',format:'image/png',transparent:true,
+     version:'1.3.0',crs:L.CRS.EPSG3857,opacity:.55,
+     attribution:'© 국토정보공사 V-World'}
+  ).addTo(mapObj);
+  btn.classList.add('active');
+}
+
+/* ══════════════════════════════════════════
+   KOSIS 인구통계
+══════════════════════════════════════════ */
+let _kosisKey='';
+function applyKOSISKey(){
+  const key=document.getElementById('kosisKeyInput').value.trim();
+  if(!key){ alert('KOSIS API 키를 입력하세요.'); return; }
+  _kosisKey=key;
+  localStorage.setItem('sgs_kosis_key',key);
+  document.getElementById('kosisStatus').innerHTML=
+    '<span style="color:#22c55e">✅ 키 저장됨 — 다음 분석 실행 시 인구 데이터 자동 조회</span>';
+}
+
+async function fetchKOSISPop(addr){
+  const key=_kosisKey||localStorage.getItem('sgs_kosis_key')||'';
+  if(!key) return;
+  /* 주소에서 시군구 추출 (예: "부산광역시 금정구" → "금정구") */
+  const m=addr.match(/([가-힣]+[시군구])\s/);
+  const region=m?m[1]:'전국';
+  /* KOSIS 통계 조회 URL (인구총조사 간이통계) */
+  const url=`https://kosis.kr/openapi/statisticsData.do?method=getList&apiKey=${key}&format=json`+
+    `&jsonVD=Y&userStatsId=&statsId=DT_1IN1502&prdSe=Y&startPrdDe=2023&endPrdDe=2023`+
+    `&newEstPrdCnt=1&orgId=101&tblId=DT_1IN1502&objL1=00`;
+  try{
+    const r=await fetch(url);
+    if(!r.ok) throw new Error('KOSIS 응답 오류');
+    const data=await r.json();
+    const pop=data[0]?.DT;
+    const popEl=document.getElementById('c-popStats');
+    if(popEl&&pop) popEl.innerHTML=srows([
+      ['지역',region],['인구(전국)',Number(pop).toLocaleString()+'명'],
+      ['출처','KOSIS 인구총조사 2023'],
+    ]);
+    const tagEl=document.getElementById('c-popTags');
+    if(tagEl) tagEl.innerHTML=['KOSIS 실데이터','2023년 기준'].map(t=>`<span class="tag">${t}</span>`).join('');
+  }catch(e){
+    console.warn('[KOSIS]',e);
+  }
+}
+
+
+/* 초기 로드 */
+window.addEventListener("DOMContentLoaded",()=>{
+  initLeaflet();
+  document.getElementById("addrInput").value="부산광역시 해운대구 센텀동로 57";
+  runAnalyze();
+  renderHistory();
+  /* 저장된 API 키 복원 */
+  const savedVW=localStorage.getItem('sgs_vworld_key');
+  if(savedVW){ document.getElementById('vworldKeyInput').value=savedVW; _vworldKey=savedVW;
+    document.getElementById('vworldStatus').innerHTML='<span style="color:#22c55e">✅ 키 저장됨</span>';
+    document.getElementById('btnVworld').style.opacity='1'; }
+  const savedKS=localStorage.getItem('sgs_kosis_key');
+  if(savedKS){ document.getElementById('kosisKeyInput').value=savedKS; _kosisKey=savedKS;
+    document.getElementById('kosisStatus').innerHTML='<span style="color:#22c55e">✅ 키 저장됨</span>'; }
+
+  /* 드래그 앤 드롭 */
+  const zone = document.getElementById("csv-unified-zone");
+  if(zone){
+    zone.addEventListener("dragover", e => { e.preventDefault(); zone.classList.add("drag-over"); });
+    zone.addEventListener("dragleave", () => zone.classList.remove("drag-over"));
+    zone.addEventListener("drop", e => {
+      e.preventDefault();
+      zone.classList.remove("drag-over");
+      if(e.dataTransfer && e.dataTransfer.files.length){
+        loadCSVMulti({ files: e.dataTransfer.files });
+      }
+    });
+  }
+});
+</script>
+
+<!-- ══ 비교 모달 ══ -->
+<div class="compare-modal" id="compareModal">
+  <div class="compare-inner">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:4px">
+      <div>
+        <div class="compare-title">대상지 비교 분석</div>
+        <div class="compare-sub">두 주소의 녹지·접근성·시설 환경을 나란히 비교합니다.</div>
+      </div>
+      <button onclick="closeCompareModal()" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--ink-48);line-height:1;margin-top:-4px">×</button>
+    </div>
+    <div class="compare-inputs">
+      <div>
+        <div class="compare-col-lbl">대상지 A</div>
+        <input class="ifield" id="cmpAddrA" placeholder="주소 A 입력" style="width:100%">
+        <select class="ifield" id="cmpRadiusA" style="width:100%;margin-top:6px">
+          <option value="300">300m</option><option value="500" selected>500m</option><option value="1000">1000m</option>
+        </select>
+      </div>
+      <div>
+        <div class="compare-col-lbl">대상지 B</div>
+        <input class="ifield" id="cmpAddrB" placeholder="주소 B 입력" style="width:100%">
+        <select class="ifield" id="cmpRadiusB" style="width:100%;margin-top:6px">
+          <option value="300">300m</option><option value="500" selected>500m</option><option value="1000">1000m</option>
+        </select>
+      </div>
+    </div>
+    <div class="compare-btn-row">
+      <button class="btn-sec" onclick="closeCompareModal()">취소</button>
+      <button class="btn-analyze" style="width:auto;padding:0 24px;font-size:14px;height:38px;margin-top:0" onclick="runCompare()">
+        <i class="ti ti-search"></i> 비교 실행
+      </button>
+    </div>
+    <div class="compare-table-wrap" id="compareResult"></div>
+  </div>
+</div>
+
+</body>
+</html>
